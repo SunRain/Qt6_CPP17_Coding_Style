@@ -143,6 +143,7 @@ Foo::Foo(int a, int b)
 - 维护旧代码：保持风格一致，避免混用
 - 团队协作：根据团队共识选择，统一标准
 - 性能敏感：实测验证，`std::optional` 等零成本抽象通常无性能损失
+- `[[nodiscard]]`：对“可能失败”的 API 属于强制项（见 §5.1）；其他场景可按团队选择
 
 ### C++20+ 可选（仅当启用 C++20 及以上时）
 
@@ -150,6 +151,72 @@ Foo::Foo(int a, int b)
 |---|---|---|
 | 二进制缓冲 | `std::span<const std::byte> buf` | 需要 C++20 |
 | 原子视图 | `std::atomic_ref<int>(val).fetch_add(1)` | 需要 C++20 |
+
+## 5.1 错误处理与断言（无异常项目）
+
+> 本规范禁止异常（`throw`/`try`/`catch`），因此必须有统一、可审计的“失败表达”策略，避免项目内混乱与吞错。
+
+### 5.1.1 总则（强制）
+
+- **禁止**：项目代码中使用 `throw`/`try`/`catch`；禁止以异常作为控制流。
+- **必须**：任何“可能失败”的函数都要**显式表达失败**；禁止通过隐式默认值吞掉错误。
+- **必须**：失败返回值必须带 `[[nodiscard]]`，防止调用方忽略失败（例如 `[[nodiscard]] bool ...`、`[[nodiscard]] std::optional<T> ...`）。
+- **必须**：断言只用于“编程错误”（前置条件/不变量被破坏，理论上不应发生）；对用户输入、I/O、网络、插件加载等可恢复错误，必须走返回值错误路径。
+- **应该**：错误信息的归属明确：底层库函数**不应**无条件 `qWarning()` 噪声刷屏；在“边界层”（UI/命令/服务入口）统一记录日志或转为用户可见信息。
+
+### 5.1.2 失败表达选型（推荐路径）
+
+> 目标：同一模块内尽量统一，评审时能快速判断“失败如何被处理/传播”。
+
+**A. 不需要错误原因：`std::optional<T>`**
+- **推荐**：`std::optional<T>` 表达“有/无结果”；无结果返回 `std::nullopt`。
+- **必须**：在接口注释中写清 `nullopt` 的语义（未找到/不适用/解析失败等）。
+
+**B. 需要错误原因（文本）：`bool + QString *error`**
+- **推荐**：返回 `bool`，额外用 `QString *error`（允许为 `nullptr`）输出失败原因。
+- **必须**：失败时若 `error != nullptr`，写入可诊断的原因；成功时不写或清空（团队统一即可）。
+
+**C. 需要错误原因（结构化）：`bool + ErrorCode`**
+- **推荐**：对可枚举的失败原因定义 `enum class ErrorCode`，并以 `ErrorCode *out` 返回（或作为成员 `lastError()`），避免大量字符串拼接。
+
+### 5.1.3 第三方异常边界（强制）
+
+- **必须**：若依赖的第三方库可能抛异常，必须在模块边界捕获并转换为本节的失败表达；异常不得跨越 Qt 事件循环/信号槽边界传播。
+
+### 5.1.4 示例（Qt6 + C++17）
+
+**❶ optional：解析失败返回空**
+```cpp
+#include <optional>
+#include <QStringView>
+
+[[nodiscard]] std::optional<int> parsePort(QStringView text)
+{
+    bool ok = false;
+    const int port = text.toInt(&ok);
+    if (!ok || port <= 0 || port > 65535) {
+        return std::nullopt;
+    }
+    return port;
+}
+```
+
+**❷ bool + error：携带可诊断信息**
+```cpp
+#include <QFileInfo>
+#include <QString>
+
+[[nodiscard]] bool loadConfig(const QString &path, QString *error)
+{
+    if (!QFileInfo::exists(path)) {
+        if (error) {
+            *error = QStringLiteral("Config file not found: %1").arg(path);
+        }
+        return false;
+    }
+    return true;
+}
+```
 
 ---
 
@@ -354,6 +421,90 @@ void startWorker(QObject *owner)
 }
 ```
 
+### 6.2 信号槽连接与线程语义（强制 + 推荐）
+
+> 目标：避免 lambda 悬挂引用、跨线程 UI 访问、queued 参数类型不匹配等高频崩溃问题；并让评审可快速审计“slot 在哪个线程执行、连接生命周期如何结束”。
+
+#### 6.2.1 connect 语法与生命周期（强制）
+
+- **必须**：仅使用新式 connect（函数指针/成员函数指针/带 context 的 functor）；禁止 `SIGNAL()/SLOT()` 字符串。
+- **必须**：使用 lambda/functor 连接时必须提供 **context**（通常为接收者/owner），禁止使用“无 context”的 functor connect 重载。
+- **必须**：lambda/functor 不得捕获可能先于连接断开而析构的裸指针；若捕获 `this`，context 必须是 `this`（或更长生命周期 owner），并优先捕获 `QPointer<T>` 做弱引用保护。
+- **推荐**：重复连接点（可能被调用多次）使用 `Qt::UniqueConnection` 防止重复连接；需要手动断开时保存 `QMetaObject::Connection` 并在合适时机 `disconnect()`。
+
+示例（推荐/禁止）：
+```cpp
+// ✅ 推荐：带 context；this 析构后自动断开
+connect(sender, &Sender::valueChanged, this, [this](int v) { onValue(v); });
+
+// ❌ 禁止：无 context；若捕获 this，极易 UAF
+connect(sender, &Sender::valueChanged, [this](int v) { onValue(v); });
+```
+
+#### 6.2.2 线程语义（强制）
+
+- **必须**：不得在非 GUI 线程访问 GUI 对象；GUI 更新必须回到 GUI 线程（queued connection 或 `QMetaObject::invokeMethod`）。
+- **必须**：当 sender/receiver 明确跨线程（或 receiver 可能 `moveToThread()`）时，连接必须显式指定 `Qt::QueuedConnection`。
+- **禁止**：跨线程使用 `Qt::DirectConnection`（除非 slot 完全线程安全且不触及 GUI/Qt 对象线程亲和性，且在评审中说明理由）。
+- **禁止（默认）**：`Qt::BlockingQueuedConnection`，除非有明确同步需求并证明不会死锁（需要评审说明）。
+
+#### 6.2.3 queued 参数类型（强制）
+
+- **必须**：queued connection 传递的自定义类型必须可被 Qt 元类型系统识别：至少 `Q_DECLARE_METATYPE(T)`，并保证在使用前完成注册（推荐在 `main()` 或模块初始化中 `qRegisterMetaType<T>()`）。
+
+示例（自定义类型作为 queued 参数）：
+```cpp
+struct Payload { int id = 0; };
+Q_DECLARE_METATYPE(Payload)
+
+// 在程序启动或模块初始化处（一次即可）
+// qRegisterMetaType<Payload>("Payload");
+```
+
+### 6.3 元对象系统与属性（Q_OBJECT / Q_PROPERTY / 元类型）（强制 + 推荐）
+
+#### 6.3.1 宏与类型选择（强制）
+
+- **必须**：任何 `QObject` 派生类必须包含 `Q_OBJECT`。
+- **推荐**：仅需要反射（枚举/属性）但不需要 QObject 生命周期/信号槽的值类型，使用 `Q_GADGET`；需要在命名空间暴露枚举使用 `Q_NAMESPACE`（配合 `Q_ENUM_NS`/`Q_FLAG_NS`）。
+
+#### 6.3.2 Q_PROPERTY（强制）
+
+- **必须**：可变属性必须提供 `NOTIFY`；setter 必须在值未变化时早返回，避免无意义信号与绑定抖动。
+- **必须**：属性的线程亲和性要明确：若属性可能被跨线程更新，必须通过 queued 方式切回对象所属线程再修改并 emit。
+
+示例（推荐写法）：
+```cpp
+class Person : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+public:
+    QString name() const { return m_name; }
+    void setName(const QString &name)
+    {
+        if (m_name == name) {
+            return;
+        }
+        m_name = name;
+        emit nameChanged();
+    }
+signals:
+    void nameChanged();
+private:
+    QString m_name;
+};
+```
+
+#### 6.3.3 Q_ENUM / Q_FLAG（推荐）
+
+- **推荐**：枚举使用 `enum class`，并用 `Q_ENUM`/`Q_ENUM_NS` 暴露到元对象系统，便于 QML/调试/反射。
+- **推荐**：位标志使用 `QFlags` + `Q_FLAG`/`Q_FLAG_NS`，并通过 `Q_DECLARE_FLAGS`/`Q_DECLARE_OPERATORS_FOR_FLAGS` 统一运算符。
+
+#### 6.3.4 元类型注册（强制）
+
+- **必须**：任何用于 queued connection 参数、`QVariant` 存储、QML 边界（属性/信号参数/方法参数）的自定义类型必须注册为元类型（见 6.2.3）；跨模块时需确保注册发生在使用方可达路径上，避免“只在某个 .cpp 静态初始化注册导致偶发缺失”。
+
 ---
 
 ## 7 内存与单例
@@ -483,6 +634,9 @@ HeaderFilterRegex: '.*'
 - [ ] QStringLiteral / u""_qs
 - [ ] `QObject`：禁止 copy/move/按值容器；用父子树/`deleteLater()`，禁止手动 `delete`；非 `QObject` 用 `std::unique_ptr`/RAII
 - [ ] 线程耗时任务用 QtConcurrent
+- [ ] 无异常：不新增 `throw`/`try`/`catch`；可能失败的 API 明确失败表达，并用 `[[nodiscard]]` 防忽略
+- [ ] 信号槽：lambda/functor connect 必须带 context；跨线程显式 `Qt::QueuedConnection`；queued 参数类型已做元类型注册
+- [ ] 元对象：`Q_PROPERTY` 可变属性必须有 `NOTIFY`，setter 仅在变更时 emit；自定义类型用于 QVariant/QML 时已注册
 ```
 
 ---
