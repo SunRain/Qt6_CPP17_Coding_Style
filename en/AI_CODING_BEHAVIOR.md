@@ -1,8 +1,8 @@
 # AI Coding Behavior Guide
 
-[English](./AI_CODING_BEHAVIOR_EN.md) | [简体中文](./AI_CODING_BEHAVIOR_CN.md) | [Source](./AI_CODING_BEHAVIOR.md)
+English | 简体中文 | Source
 
-> Note: This is an English translation of `AI_CODING_BEHAVIOR.md`. In case of any discrepancy, the source document prevails.
+> Note: This document is the English translation of the current AI coding-behavior guideline. If there is any discrepancy, the package baseline prevails.
 
 This document explains how the AI assistant handles **"Mandatory"** vs **"Optional Recommended"** rules in this project's coding standards.
 
@@ -26,7 +26,7 @@ This project classifies coding standards into three tiers:
 - Formatting (4-space indentation; braces required even for single-statement blocks)
 - Qt 6 conventions (new-style signal/slot connections, `QStringLiteral`, `Q_OBJECT`)
 - Forbidden items (exceptions, RTTI, `dynamic_cast`, raw `new`/`delete` forbidden by default; raw `new` allowed for `QObject`-derived types but must use parent ownership or `deleteLater()`; manual `delete` for `QObject` is forbidden; C-style casts)
-- `QObject` value semantics: copy/move/by-value containers are forbidden; use pointer/reference semantics and manage lifetime with parent ownership / `deleteLater()` (see Chapter 6 of `Qt6_CPP17_Coding_Style_EN.md`)
+- `QObject` value semantics: copy/move/by-value containers are forbidden; use pointer/reference semantics and manage lifetime with parent ownership / `deleteLater()` (see Chapter 6 of the coding-style guide in this directory)
 
 **Example**:
 ```cpp
@@ -52,7 +52,7 @@ if (condition) {
 - 🤝 **User preference**: respect explicit choices; avoid repeated reminders.
 - 💡 **First use**: you may briefly explain the benefit (once, and only once).
 
-**Includes** (see Chapter 5 of `Qt6_CPP17_Coding_Style_EN.md`):
+**Includes** (see Chapter 5 of the coding-style guide in this directory):
 - `std::optional<T>` vs `bool func(T *out)`
 - Structured bindings vs `QPair`
 - `constexpr` vs `const`/`#define`
@@ -89,7 +89,7 @@ bool getColor(QColor *outColor) {
 - 🔍 **Analyze existing code**: learn the real style used in the codebase.
 - 📊 **Prefer the dominant style**: if 90% of the codebase uses a pattern, follow it.
 - 🆕 **New modules**: you may introduce modern patterns in a controlled way.
-- 📝 **Documentation update**: add new conventions to the relevant documents in the release package (prefer `Qt6_CPP17_Coding_Style_EN.md` / `CPP_Code_Comment_Guidelines_EN.md`), and update this document's decision notes (if applicable).
+- 📝 **Documentation update**: add new conventions to the relevant documents in the release package (prefer the coding-style and comment-guideline documents in this directory), and update this document's decision notes (if applicable).
 
 ---
 
@@ -305,18 +305,18 @@ QPair<QMap<QString, int>::iterator, bool> insertValue(
 
 ### Release Package Entry (Single Entry Point)
 
-This repository is designed to be copied as a release package into product codebases. The canonical (SSOT) rules are in the **no-suffix** files; `*_CN.md` / `*_EN.md` are provided for readability.
+This directory provides a localized reading set that can be reviewed and distributed on its own.
 
-- [`Qt6_CPP17_Coding_Style_EN.md`](./Qt6_CPP17_Coding_Style_EN.md) (coding style; optional recommendations in Chapter 5)
-- [`Qt6_CPP17_CLANG-FORMAT`](./Qt6_CPP17_CLANG-FORMAT) (clang-format config; formatting SSOT)
-- [`CPP_Code_Comment_Guidelines_EN.md`](./CPP_Code_Comment_Guidelines_EN.md) (comment guidelines)
-- [`AI_CODING_BEHAVIOR_EN.md`](./AI_CODING_BEHAVIOR_EN.md) (AI behavior and decision tree)
+- [`Coding Style Guide`](./Qt6_CPP17_Coding_Style.md) (optional recommendations in Chapter 5)
+- bundled clang-format baseline notes for formatting consistency
+- [`Comment Guidelines`](./CPP_Code_Comment_Guidelines.md)
+- AI behavior and decision tree (this document)
 
-#### SSOT and Reading Order
-1. Formatting (SSOT): `./Qt6_CPP17_CLANG-FORMAT`
-2. Coding style: `./Qt6_CPP17_Coding_Style_EN.md`
-3. Comment guidelines: `./CPP_Code_Comment_Guidelines_EN.md`
-4. AI behavior: this document
+#### Suggested Reading Order
+1. Formatting conventions and bundled baseline notes
+2. [`Coding Style Guide`](./Qt6_CPP17_Coding_Style.md)
+3. [`Comment Guidelines`](./CPP_Code_Comment_Guidelines.md)
+4. AI behavior notes (this document)
 
 #### Link Rules
 - Use relative links only, and only to files/anchors within the release package. Do not link to non-release paths or tool-specific entry names.
@@ -329,4 +329,3 @@ This repository is designed to be copied as a release package into product codeb
 
 **Document Package Version**: v1.0.6  
 **Last Updated**: 2026-01-17
-

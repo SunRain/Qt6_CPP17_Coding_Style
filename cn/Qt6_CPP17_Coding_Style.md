@@ -1,14 +1,14 @@
 # Qt6_CPP17_Coding_Style（中文）
 
-[English](./Qt6_CPP17_Coding_Style_EN.md) | 简体中文 | [原文](./Qt6_CPP17_Coding_Style.md)
+English | 简体中文 | 原文
 
-> 说明：本文档为 `Qt6_CPP17_Coding_Style.md` 的中文版本/整理版（用于阅读与分发）。若与原文存在差异，以原文为准。
+> 说明：本文档为当前 Qt6 / C++17 代码规范的中文整理版（用于阅读与分发）。若与规范基线存在差异，以规范基线为准。
 
 ## 指导原则
 
 ---
 你=资深 Qt/KDE与现代 C++17 开发者，以下条款为强制最高优先级；任何冲突以序号小者为准。
-所有代码须在现代 C++17 下编译（GCC≥11、Clang≥14、MSVC≥2019），同时通过 clang-format（标准配置：`Qt6_CPP17_CLANG-FORMAT`）与 clang-tidy（可选；示例见第 10 章），并保持项目构建/测试零警告（如适用）。详细的代码规范可以参考：
+所有代码须在现代 C++17 下编译（GCC≥11、Clang≥14、MSVC≥2019），同时通过 clang-format（使用随附的格式基线配置）与 clang-tidy（可选；示例见第 10 章），并保持项目构建/测试零警告（如适用）。详细的代码规范可以参考：
 - https://wiki.qt.io/Qt_Coding_Style
 - https://wiki.qt.io/Coding_Conventions
 - https://community.kde.org/Policies/Frameworks_Coding_Style
@@ -19,7 +19,7 @@
 - 编译器：GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
 - 标准：C++17 (`set(CMAKE_CXX_STANDARD 17)`)
 - 警告：`-Wall -Wextra -Wpedantic` 全开，**零警告提交**
-- 格式化：项目根放置 `Qt6_CPP17_CLANG-FORMAT`（必要时可复制/链接为 `.clang-format` 供工具自动发现），提交前 `git clang-format --style=file:Qt6_CPP17_CLANG-FORMAT`
+- 格式化：项目中应提供统一的 clang-format 基线文件（必要时可复制/链接为 `.clang-format` 供工具自动发现），提交前按项目格式基线执行 `git clang-format --style=file`
 - 禁止：异常、RTTI、dynamic_cast、裸 new（`QObject` 派生为明确例外，见第 6 章）、单语句无 braces、64-bit enum
 - 明智地使用模板，不要仅仅因为“能用”就用
 - 避免使用 C 风格转换，优先使用 C++ 风格转换（`static_cast`、`const_cast`、`reinterpret_cast`）
@@ -564,9 +564,9 @@ MyApp/
 
 ## 10 配置文件（直接复制到项目根）
 
-### Qt6_CPP17_CLANG-FORMAT（通用 Qt/C++ 基线）
+### clang-format 基线配置（通用 Qt/C++）
 
-本仓库已提供完整配置，SSOT 为仓库根目录 `Qt6_CPP17_CLANG-FORMAT`（请以该文件为准，不再在本文档重复粘贴完整 YAML，避免漂移；如需 clang-format 默认自动发现，可复制/软链为 `.clang-format`）。
+发布包内已提供完整的格式基线说明；本文档仅保留关键摘要，避免重复粘贴完整 YAML 而产生漂移。如需 clang-format 默认自动发现，可复制/软链为 `.clang-format`。
 
 关键约定（摘要）：
 - 4 空格缩进（`IndentWidth: 4`，`TabWidth: 4`，`UseTab: Never`）
@@ -578,9 +578,9 @@ MyApp/
 - 换行：二元运算符放新行首（`BreakBeforeBinaryOperators: All`）；构造函数初始化列表行首逗号（`BreakConstructorInitializers: BeforeComma`）
 - 注释：不自动折行（`ReflowComments: false`），行尾注释对齐（`AlignTrailingComments`）
 
-关键配置对照（换行/缩进/初始化列表/括号/空格/注释/排序）（以 `Qt6_CPP17_CLANG-FORMAT` 为准）：
+关键配置对照（换行/缩进/初始化列表/括号/空格/注释/排序）（以当前目录的格式基线说明为准）：
 
-| 键（Qt6_CPP17_CLANG-FORMAT） | 含义 | 示例 |
+| 键（格式基线配置） | 含义 | 示例 |
 |---|---|---|
 | `BraceWrapping.AfterControlStatement: Never` | `if/for/while` 的 `{` 不换行，附着在同一行 | `if (ok) {` |
 | `BraceWrapping.AfterFunction: true` | 函数定义的 `{` 换行 | `void f()`<br>`{` |

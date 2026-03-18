@@ -1,9 +1,9 @@
 # C++ Code Comment Guidelines for AI-Generated Code (C++17/20 Additions)
 (Compatible with C++11 and later; concise and non-redundant)
 
-[English](./CPP_Code_Comment_Guidelines_EN.md) | [简体中文](./CPP_Code_Comment_Guidelines_CN.md) | [Source](./CPP_Code_Comment_Guidelines.md)
+English | 简体中文 | Source
 
-> Note: This is an English translation of `CPP_Code_Comment_Guidelines.md`. In case of any discrepancy, the source document prevails.
+> Note: This document is the English translation of the current C++ comment guideline. If there is any discrepancy, the package baseline prevails.
 
 ## Core Goal
 When generating C++ code, add comments according to the following rules. Keep only essential information and avoid redundant comments that make code harder to read.
@@ -64,4 +64,3 @@ When generating C++ code, add comments according to the following rules. Keep on
 
 **Document Package Version**: v1.0.6  
 **Last Updated**: 2026-01-17
-

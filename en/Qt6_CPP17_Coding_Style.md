@@ -1,14 +1,14 @@
 # Qt6 C++17 Coding Style
 
-[English](./Qt6_CPP17_Coding_Style_EN.md) | [简体中文](./Qt6_CPP17_Coding_Style_CN.md) | [Source](./Qt6_CPP17_Coding_Style.md)
+English | 简体中文 | Source
 
-> Note: This is an English translation of `Qt6_CPP17_Coding_Style.md`. In case of any discrepancy, the source document prevails.
+> Note: This document is the English translation of the current Qt6 / C++17 coding guideline. If there is any discrepancy, the package baseline prevails.
 
 ## Guiding Principles
 
 ---
 You are a senior Qt/KDE and modern C++17 developer. The following rules are mandatory and have the highest priority; if any rules conflict, the lower-numbered one wins.
-All code must compile as modern C++17 (GCC ≥ 11, Clang ≥ 14, MSVC ≥ 2019), pass clang-format (baseline config: `Qt6_CPP17_CLANG-FORMAT`) and optionally clang-tidy (see Chapter 10 for a minimal example), and keep the project build/tests warning-free (where applicable). For more detailed conventions, refer to:
+All code must compile as modern C++17 (GCC ≥ 11, Clang ≥ 14, MSVC ≥ 2019), pass clang-format (using the bundled formatting baseline) and optionally clang-tidy (see Chapter 10 for a minimal example), and keep the project build/tests warning-free (where applicable). For more detailed conventions, refer to:
 - https://wiki.qt.io/Qt_Coding_Style
 - https://wiki.qt.io/Coding_Conventions
 - https://community.kde.org/Policies/Frameworks_Coding_Style
@@ -19,7 +19,7 @@ All code must compile as modern C++17 (GCC ≥ 11, Clang ≥ 14, MSVC ≥ 2019),
 - Compilers: GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
 - Standard: C++17 (`set(CMAKE_CXX_STANDARD 17)`)
 - Warnings: enable `-Wall -Wextra -Wpedantic`, **no-warning commits**
-- Formatting: place `Qt6_CPP17_CLANG-FORMAT` at the repo root (copy/symlink to `.clang-format` if you want tooling auto-discovery); run `git clang-format --style=file:Qt6_CPP17_CLANG-FORMAT` before committing
+- Formatting: keep a shared clang-format baseline file in the project (copy/symlink it to `.clang-format` if you want tooling auto-discovery); run `git clang-format --style=file` against the project baseline before committing
 - Forbidden: exceptions, RTTI, `dynamic_cast`, raw `new` (explicit exception for `QObject`-derived types; see Chapter 6), single-statement control blocks without braces, 64-bit enums
 - Use templates wisely, not just because you can
 - Avoid C casts, prefer C++ casts (`static_cast`, `const_cast`, `reinterpret_cast`)
@@ -564,9 +564,9 @@ MyApp/
 
 ## 10 Config Files (Copy to Project Root)
 
-### Qt6_CPP17_CLANG-FORMAT (Baseline for Qt/C++)
+### clang-format Baseline (Qt/C++)
 
-This repository provides a complete configuration. The formatting SSOT is the repo-root `Qt6_CPP17_CLANG-FORMAT` (do not paste the full YAML here to avoid drift). If you want clang-format to auto-discover it, copy/symlink it to `.clang-format`.
+This package includes the complete formatting baseline. This document keeps only the key summary to avoid YAML drift. If you want clang-format to auto-discover it, copy/symlink the chosen baseline to `.clang-format`.
 
 Key conventions (summary):
 - 4-space indentation (`IndentWidth: 4`, `TabWidth: 4`, `UseTab: Never`)
@@ -578,9 +578,9 @@ Key conventions (summary):
 - Wrapping: binary operators at line start (`BreakBeforeBinaryOperators: All`); leading commas for constructor initializers (`BreakConstructorInitializers: BeforeComma`)
 - Comments: do not reflow (`ReflowComments: false`); align trailing comments (`AlignTrailingComments`)
 
-Key configuration reference (wrapping/indent/init list/braces/spaces/comments/sorting) (see `Qt6_CPP17_CLANG-FORMAT` for the authoritative config):
+Key configuration reference (wrapping/indent/init list/braces/spaces/comments/sorting) (see the baseline notes in this directory for the authoritative configuration summary):
 
-| Key (Qt6_CPP17_CLANG-FORMAT) | Meaning | Example |
+| Key (Formatting Baseline) | Meaning | Example |
 |---|---|---|
 | `BraceWrapping.AfterControlStatement: Never` | `{` does not start on a new line for `if/for/while` | `if (ok) {` |
 | `BraceWrapping.AfterFunction: true` | `{` starts on a new line for function definitions | `void f()`<br>`{` |

@@ -30,8 +30,8 @@ English docs: [en/](en/)
 ├── Qt6_CPP17_CLANG-FORMAT               # clang-format 配置（可复制/链接为 .clang-format）
 ├── CPP_Code_Comment_Guidelines.md       # C++ 注释规范（中文）
 ├── AI_CODING_BEHAVIOR.md                # AI 协作与强制规范说明（中文）
-├── cn/                                  # 中文文档（带 _CN 后缀，便于区分语言）
-└── en/                                  # English docs
+├── cn/                                  # 中文分发版文档
+└── en/                                  # English translations
 ```
 
 ---
@@ -42,7 +42,11 @@ English docs: [en/](en/)
 - clang-format 配置：[`Qt6_CPP17_CLANG-FORMAT`](Qt6_CPP17_CLANG-FORMAT)
 - 注释规范（中文）：[`CPP_Code_Comment_Guidelines.md`](CPP_Code_Comment_Guidelines.md)
 - AI 协作约定（中文）：[`AI_CODING_BEHAVIOR.md`](AI_CODING_BEHAVIOR.md)
+- Qt6 / KDE Public API 参数规范（中文）：[`Qt6_KDE_API_Parameter_Style.md`](Qt6_KDE_API_Parameter_Style.md)
+- Qt6 / KDE API System Prompt（中文）：[`Qt6_KDE_API_Parameter_Style.system-prompt.md`](Qt6_KDE_API_Parameter_Style.system-prompt.md)
 - English：
-  - [`en/Qt6_CPP17_Coding_Style_EN.md`](en/Qt6_CPP17_Coding_Style_EN.md)
-  - [`en/CPP_Code_Comment_Guidelines_EN.md`](en/CPP_Code_Comment_Guidelines_EN.md)
-  - [`en/AI_CODING_BEHAVIOR_EN.md`](en/AI_CODING_BEHAVIOR_EN.md)
+  - [`en/Qt6_CPP17_Coding_Style.md`](en/Qt6_CPP17_Coding_Style.md)
+  - [`en/CPP_Code_Comment_Guidelines.md`](en/CPP_Code_Comment_Guidelines.md)
+  - [`en/AI_CODING_BEHAVIOR.md`](en/AI_CODING_BEHAVIOR.md)
+  - [`en/Qt6_KDE_API_Parameter_Style.md`](en/Qt6_KDE_API_Parameter_Style.md)
+  - [`en/Qt6_KDE_API_Parameter_Style.system-prompt.md`](en/Qt6_KDE_API_Parameter_Style.system-prompt.md)
