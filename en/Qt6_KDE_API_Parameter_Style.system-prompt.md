@@ -32,6 +32,7 @@ For text Borrow parameters, prefer a single view entry point:
 - use `QStringView` when UTF-16 semantics are explicit
 - use `QUtf8StringView` when the protocol is explicitly UTF-8
 - use `QLatin1StringView` when the protocol is explicitly Latin1
+- for the same semantics: you must choose exactly one view type as the canonical Public API entry point; do not stack the view types above as same-name overloads. If you need to distinguish encodings, you must use different function names (for example `setNameUtf8(...)` / `setNameLatin1(...)`).
 - in Qt 6, `QLatin1String` and `QLatin1StringView` are the same type; the old name remains mainly for compatibility, and new code should prefer `QLatin1StringView`
 - all view parameters must be passed by value
 - never use `const QAnyStringView&`, `const QStringView&`, or `const QByteArrayView&`
@@ -48,6 +49,7 @@ For text Owning parameters, prefer `const QString&` as the default public API st
 You must strictly protect QML / Meta-Object boundaries:
 - `signals`, `slots`, `Q_INVOKABLE`, and `Q_PROPERTY`-related functions and signals must not use view types as parameters or return values
 - on those boundaries, prefer owning types such as `QString`, `QByteArray`, `QVariant`, and `QUrl`
+- at this boundary, the core constraint is: the type must be owning and safely copyable/convertible. You do not need to enforce pass-by-value vs `const&`, but you must forbid exposing any view/borrowed types at this boundary.
 - if you need both a stable QML boundary and a high-performance C++ entry point, provide a separate non-meta-object C++ method
 - prefer different method names such as `setName()` and `setNameView()`
 
@@ -85,6 +87,11 @@ You must prioritize compatibility:
 - do not “modernize” an already-published `const QString&` public API into sink-style or view-style form without evidence
 - if you recommend changing a public signature, you must also explain the benefit, impact scope, migration plan, and compatibility cost
 - by default, preserve public API stability
+
+Implementation-side rules (for implementation code review only; do not change the public API parameter-signature rules):
+- `QSharedDataPointer<T>`: you should usually not call `detach()` manually; non-const access will trigger copy-on-write detaching when needed.
+- Read-only cases: prefer a const access path (make the function `const` when you can), to avoid introducing unnecessary detaching overhead in non-const access paths.
+- `QExplicitlySharedDataPointer<T>`: if you intend copy-on-write semantics when modifying shared data, you must call `detach()` explicitly before writing.
 
 The following items are only enhancements and must not be elevated to blocking issues by default:
 - consider `noexcept` for pure parsing / comparison functions when the project style allows it

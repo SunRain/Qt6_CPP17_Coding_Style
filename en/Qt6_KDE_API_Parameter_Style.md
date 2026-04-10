@@ -32,6 +32,51 @@ Version / prerequisites (recommended to state explicitly in the project):
 
 > Note: this does **not** mean “all pointer/reference parameters are forbidden.” For example, `QObject*` observer pointers and parent/child relationships follow a different contract (ownership, thread affinity, invalidation rules) and must be documented separately. But they still must not be stored across calls if they are only borrowed inputs.
 
+### 0.1 Public API parameter quick decision tree (recommended)
+
+> Goal: with minimal rules, make “semantics + boundary + compatibility” land in an implementable signature choice.
+
+**First: determine whether this crosses a Qt Meta-Object / QML boundary (mandatory)**
+- If the function/signal/property interface goes through `moc` (`signals` / `slots` / `Q_INVOKABLE` / `Q_PROPERTY` READ/WRITE/NOTIFY, etc.):
+  - Prefer owning types for parameters/return values (for example `QString` / `QByteArray` / `QUrl` / `QVariant`)
+  - Avoid exposing view types on that boundary; avoid same-name overloads where possible (see 1.4 and 5.6)
+  - Clarification: the point here is that the *type* must be owning and safely copyable/convertible. This does not force pass-by-value vs `const&`, but view/borrowed types must not appear on that boundary.
+
+**Second: decide semantics: Borrow vs Owning (must come first)**
+- Borrow: only read/parse/compare during the call; do not store; do not use async; do not cross event loops/threads.
+- Owning: stored in members/caches/queues, or used across calls/event loops/threads/async/delayed execution.
+
+**Finally: pick parameter types based on semantics (Public C++ API)**
+- Borrow text/bytes: prefer a **single view entry point**, and **pass by value**
+  - Text: `foo(QAnyStringView)` / `foo(QStringView)` / `foo(QUtf8StringView)` / `foo(QLatin1StringView)`
+  - Bytes: `foo(QByteArrayView)`
+  - Note: these are mutually exclusive candidates. For a single semantics, pick exactly one as the canonical entry point; do not implement all of them as same-name overloads. If you need multiple encodings, prefer different function names (for example `setNameUtf8(...)` / `setNameLatin1(...)`, see 5.3).
+- Owning text/bytes (stored/async): the default public API starting point is `const QString&` / `const QByteArray&`
+  - You may offer `setNameView(QAnyStringView)` as a convenience entry point, but it must convert to owning immediately and forward to a single implementation point (see Chapter 2)
+- Pure C++ (non meta-object) APIs that want “single entry + natural moves”: sink style `QString name` + `std::move(name)` is optional (see 2.1), but do not present sink style as the mainstream default for Qt/KDE public setters.
+
+### 0.2 Non-text parameters: by value vs `const&` (Public API general rule)
+
+> Note: whether a type is implicitly shared affects the “copy cost model”, but signatures should express semantics first. For most non-text inputs, follow the basic rule: pass small values by value; pass large objects by `const&`.
+
+**Rules (mandatory)**
+- Small scalars / enums / flags: pass by value (do not write `const T&`)
+  - `bool`, integers, `double`, pointers/handles
+  - small `enum`, `QFlags`
+  - small value types such as `std::chrono::duration` / `std::chrono::time_point`
+- Large objects / containers / complex structures: prefer `const T&` for read-only inputs
+  - for example `QSet<T>`, `QHash<K,V>`, `QMap<K,V>`, `QVector<T>`, `QList<T>`, or custom large structs
+- View types (such as `QAnyStringView` / `QStringView` / `QByteArrayView`): must be passed by value; do not use `const View&` (see Chapter 1)
+
+**Example**
+```cpp
+void setEnabled(bool enabled);                      // by value
+void setMode(Mode mode);                            // enum by value
+void setTimeout(std::chrono::milliseconds timeout); // small chrono by value
+
+void setTags(const QSet<QString> &tags);            // const&
+```
+
 ---
 
 ## 1) View: read-only / parsing entry points (recommended to pass by value)
@@ -225,6 +270,45 @@ void Foo::enqueuePacket(QByteArrayView packet)
 
 ## 2) Owning: for values that are stored / become members (`QString`-first, optional view convenience)
 
+### 2.0 Owning parameters: signature choice and implementation constraints (supplement)
+
+**Semantic recap**
+- Owning = the input will be stored in members/caches/queues, or used across calls/event loops/threads/async or delayed execution.
+- Owning semantics does not mean “the parameter must be by value” or “the parameter must be `const&`”. It constrains **lifetime and implementation**.
+
+**Rules (mandatory)**
+- For Owning scenarios: the stored member type must be owning (for example `QString` / `QByteArray`). Do not store views (`QAnyStringView` / `QStringView` / `QByteArrayView`) in members, caches, queues, or delayed-execution contexts.
+- If the API crosses a Qt Meta-Object / QML boundary: do not use views as parameters/return values (see 1.4).
+
+**Recommended Public API signatures (default starting point)**
+- For Qt implicitly shared value types that will be stored as members/caches (`QString` / `QByteArray` / `QImage` / ...):
+  - Default public API starting point: `const T&`
+  - Why: aligns with established Qt/KF style; the signature is straightforward; expectations and compatibility are usually more stable downstream; and implicit sharing often makes “storing into a member” a shallow shared copy (see examples in this chapter).
+
+**Optional: add a view convenience entry point (prefer a different method name)**
+- If you truly need a single entry that accepts many string/byte sources, you may add a view entry point as a convenience:
+  - The view entry point must convert to owning immediately (`toString()` / `toByteArray()`) and forward to the owning entry point or a single implementation point.
+  - Prefer a different name (for example `setName()` + `setNameView()`), to avoid connect()/overload-resolution ambiguity (see 1.4 and 5.6).
+
+**Optional: sink style in pure C++ Public API (by value + move)**
+- Consider making the owning type a by-value canonical entry point (see 2.1) only if all of the following hold:
+  - Pure C++ interface (not `slots` / `Q_INVOKABLE` / QML boundary)
+  - You explicitly want a single entry point that naturally supports moves, and you accept the long-term signature-style tradeoff
+- Note: do not describe sink style as the mainstream default for Qt6/KDE public setters. For published APIs, do not change signatures without evidence (compatibility: see Chapter 6).
+
+**Minimal template (Owning)**
+```cpp
+void Foo::setName(const QString &name)
+{
+    d->name = name; // Owning: store as a member (often a shallow shared copy)
+}
+
+void Foo::setNameView(QAnyStringView name)
+{
+    setName(name.toString()); // convenience: convert to owning immediately, then forward
+}
+```
+
 ### Recommended style (Public C++ API)
 - For Qt implicitly shared value types that will be stored as members / caches (`QString`, `QByteArray`, `QImage`, ...):
   - provide an owning entry point: `const QString&` (or the corresponding type)
@@ -243,6 +327,8 @@ Explanation: `QString` implicit sharing means “copying a `QString` into a memb
 > Tip: if the class is a `QObject` and is often used as a `connect(..., &Type::setName)` target, prefer naming the view entry point differently (for example `setNameView(QAnyStringView)`) to avoid function-pointer ambiguity. Otherwise, call sites will need `qOverload` / `static_cast` disambiguation (see 1.4 and 5.6).
 
 ### 2.1 Optional: owning sink directly in Public C++ API (pass by value + move)
+
+> ⚠️ Compatibility note: do not change an **already-published** public function signature (including switching from `const T&` to sink style, or adding new overloads) merely for “modernization” / speculative performance. If a change is necessary, state the benefit, impact scope (source/ABI/QML), migration plan, and versioning strategy (see Chapter 6).
 
 In the following scenarios, you may consider using `QString` by value as the canonical public entry point, to reduce overloads and support moves naturally (especially when callers pass temporaries):
 - this is a pure C++ Public API (not a `slot`, `Q_INVOKABLE`, or QML boundary)
@@ -428,6 +514,8 @@ connect(sender, &Sender::nameChanged,
 
 ### 5.7 “Downstream call-surface” checks before adding overloads (ideally as compile tests)
 
+> ⚠️ Compatibility note: adding overloads is not a “zero-risk optimization”. Even without changing call-site code, overload resolution changes can alter behavior or introduce ambiguity errors. For already-published public APIs, treat overload additions as compatibility decisions.
+
 Before adding / adjusting overloads (especially when introducing views next to `const QString&`), at least verify that these typical call sites:
 - compile without ambiguity
 - select the overload you expect (or at least an acceptable one)
@@ -465,3 +553,38 @@ The most practical implementation is a compile-only test target under `tests/` t
 - Will a `QObject` interface become ambiguous in modern `connect()` syntax because of overloads? Was that resolved through renaming or explicit `qOverload`?
 - If the function is only pure parsing / comparison and the project style allows it, should it be marked `noexcept`? (enhancement, not a main rule here)
 - If the public API returns a view, are its lifetime and invalidation conditions clearly documented in the signature / docs, and should `[[nodiscard]]` be considered? (enhancement, project-specific)
+
+---
+
+## Appendix A) Implicitly shared data (`QSharedDataPointer` / `QExplicitlySharedDataPointer`): `detach()` conventions (implementation-side)
+
+> This appendix exists to reduce debates in code review about whether to hand-write `detach()`. It is implementation-side guidance and does not change the main rules in this document about Public API parameter semantics and type choices.
+
+### A.1 `QSharedDataPointer`: you usually do not need to call `detach()` manually
+
+**Rule (recommended)**
+- When using `QSharedDataPointer<T>`, you usually should not write `d.detach()` by hand.
+- Non-const access triggers detaching when needed, so code like `d->field = ...;` will detach when necessary.
+- Note: for read-only access, prefer a const access path (make the function `const` when you can), to avoid “read-only but still detaches” overhead in non-const access paths.
+
+**Example**
+```cpp
+// Usually no need: d.detach();
+d->type = value; // non-const access triggers detaching when needed
+```
+
+### A.2 `QExplicitlySharedDataPointer`: you must call `detach()` explicitly
+
+**Rule (mandatory)**
+- `QExplicitlySharedDataPointer<T>` does not detach automatically.
+- When you are about to modify shared data and the intended semantics are “copy-on-write”, you must call `detach()` first and then write.
+
+**Example**
+```cpp
+d.detach();      // explicit detach
+d->type = value; // modification affects only this instance
+```
+
+**References (Qt docs)**
+- `QSharedDataPointer`: `https://doc.qt.io/qt-6/qshareddatapointer.html`
+- `QExplicitlySharedDataPointer`: `https://doc.qt.io/qt-6/qexplicitlyshareddatapointer.html`
