@@ -5,8 +5,17 @@ English | 简体中文 | Source
 
 > Note: This document is the English translation of the current Qt6 / KDE API parameter guideline. If there is any discrepancy, the package baseline prevails.
 
-Scope: exported Qt6/KF6 shared-library APIs (public headers / exported symbols), plus interface layers that include QML bindings (`Q_PROPERTY` / `Q_INVOKABLE` / signals/slots).  
+This guideline belongs to `Qt6_CPP17_Coding_Style.md` and expands its Public API parameter-semantics topic.
+
+Scope: exported Qt6/KF6 shared-library APIs (public headers / exported symbols), plus interface layers that include QML bindings (`Q_PROPERTY` / `Q_INVOKABLE` / signals/slots).
+
 Goal: keep public interfaces clear and maintainable; keep internal implementations performant and simple; allow view-based borrow APIs to be introduced gradually while avoiding overload traps in public headers.
+
+Authority boundaries:
+- Public API parameter types, Borrow / Owning, view lifetimes, overload control, and compatibility are owned by this document.
+- Qt / QML / moc macro placement and class-body layout are owned by `Qt_Macro_Layout_Coding_Style.md`.
+- Baseline formatting, naming, lifetime, threading, and error handling are owned by `Qt6_CPP17_Coding_Style.md`.
+- Code examples consistently use keyword-free macro spelling: `Q_SIGNALS:`, `Q_SLOTS`, `Q_EMIT`.
 
 Version / prerequisites (recommended to state explicitly in the project):
 - Language: C++17 (`std::span` mentioned in this document only applies to C++20; C++17 projects should avoid exposing `std::span` in Public API, see 1.1)
@@ -166,19 +175,21 @@ void Foo::postLogMessage(QAnyStringView msg)
   - For `QObject` types, prefer a different method name for the C++ view entry point, so that modern `connect(..., &Type::method)` syntax does not become ambiguous because of overloads.
 
 ```cpp
-class Foo : public QObject {
+class Foo : public QObject
+{
     Q_OBJECT
-    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged FINAL)
+
 public:
     QString name() const;
 
-public slots:
+public Q_SLOTS:
     void setName(const QString &name);        // QML / Meta-Object boundary: owning
 
 public:
     void setNameView(QAnyStringView name);    // pure C++ entry: Borrow (view, C++ only)
 
-signals:
+Q_SIGNALS:
     void nameChanged(const QString &name);    // signals must be owning as well
 };
 ```

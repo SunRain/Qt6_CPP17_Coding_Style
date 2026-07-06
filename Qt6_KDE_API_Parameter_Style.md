@@ -1,7 +1,16 @@
 # Qt6 / KDE 风格共享库 Public API 参数规范（`QString` owning + view borrow）
 
-适用范围：对外导出的 Qt6/KF6 共享库（public headers / exported symbols），以及包含 QML 绑定（`Q_PROPERTY` / `Q_INVOKABLE` / signals/slots）的接口层。  
+本规范隶属 `Qt6_CPP17_Coding_Style.md`，是 Public API 参数语义的专题展开。
+
+适用范围：对外导出的 Qt6/KF6 共享库（public headers / exported symbols），以及包含 QML 绑定（`Q_PROPERTY` / `Q_INVOKABLE` / signals/slots）的接口层。
+
 目标：对外接口清晰可维护；内部实现高性能且简洁；允许在演进中逐步引入 view（borrow）能力，同时避免公共头文件的重载陷阱。
+
+权威边界：
+- Public API 参数类型、Borrow / Owning、view 生命周期、重载控制和兼容性，以本文为唯一权威。
+- Qt / QML / moc 宏位置与类体布局，以 `Qt_Macro_Layout_Coding_Style.md` 为唯一权威。
+- 基础格式、命名、生命周期、线程、错误处理，以 `Qt6_CPP17_Coding_Style.md` 为总纲。
+- 代码示例统一使用无关键字宏写法：`Q_SIGNALS:`、`Q_SLOTS`、`Q_EMIT`。
 
 版本/前置条件（建议在项目内明确基线）：
 - 语言：C++17（本文提到的 `std::span` 仅适用于 C++20；C++17 项目应避免在 Public API 暴露 `std::span`，见 1.1）
@@ -161,19 +170,21 @@ void Foo::postLogMessage(QAnyStringView msg)
   - 对 `QObject` 类型，建议 C++ 的 view 入口使用不同方法名，避免在现代 `connect(..., &Type::method)` 语法下因重载导致二义性（见下方示例）。
 
 ```cpp
-class Foo : public QObject {
+class Foo : public QObject
+{
     Q_OBJECT
-    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged FINAL)
+
 public:
     QString name() const;
 
-public slots:
+public Q_SLOTS:
     void setName(const QString &name);        // QML/Meta-Object 边界：owning
 
 public:
     void setNameView(QAnyStringView name);    // 纯 C++ 入口：Borrow（view，仅 C++）
 
-signals:
+Q_SIGNALS:
     void nameChanged(const QString &name);    // 信号也必须 owning
 };
 ```

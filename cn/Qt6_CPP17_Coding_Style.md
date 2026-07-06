@@ -15,12 +15,24 @@ English | 简体中文 | 原文
 
 ---
 
+## 规范包关系（一纲两专题）
+
+本文件是 Qt6 / KDE / C++17 代码规范包的唯一总纲，负责基础编码规则、生命周期、线程、错误处理、工具配置与通用 Qt 约定。
+
+两份专题文档作为本总纲的展开，不再与总纲重复维护全文规则：
+
+- `Qt_Macro_Layout_Coding_Style.md`：Qt / QML / moc 宏布局的唯一权威，回答 `Q_OBJECT`、`Q_PROPERTY`、`Q_SIGNALS:`、`Q_SLOTS`、`Q_ENUM`、metatype、d-pointer、日志宏等放在哪里。
+- `Qt6_KDE_API_Parameter_Style.md`：Public API 参数语义的唯一权威，回答 Borrow / Owning、view 生命周期、QML/meta-object 边界类型、重载控制与兼容性。
+
+当专题范围内的细节与本文件摘要不一致时，以对应专题为准；本文件只保留摘要和跳转引用，避免三份文档规则漂移。
+
 ## 0 总览
 - 编译器：GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
 - 标准：C++17 (`set(CMAKE_CXX_STANDARD 17)`)
 - 警告：`-Wall -Wextra -Wpedantic` 全开，**零警告提交**
 - 格式化：项目中应提供统一的 clang-format 基线文件（必要时可复制/链接为 `.clang-format` 供工具自动发现），提交前按项目格式基线执行 `git clang-format --style=file`
 - 禁止：异常、RTTI、dynamic_cast、裸 new（`QObject` 派生为明确例外，见第 6 章）、单语句无 braces、64-bit enum
+- Qt 宏写法：公共库、toolkit header、普通 app/internal code 全部使用无关键字宏写法：`Q_SIGNALS:`、`Q_SLOTS`、`Q_EMIT`
 - 明智地使用模板，不要仅仅因为“能用”就用
 - 避免使用 C 风格转换，优先使用 C++ 风格转换（`static_cast`、`const_cast`、`reinterpret_cast`）
 - 不要使用 `dynamic_cast`；对 `QObject` 使用 `qobject_cast`，或通过重构设计（例如引入 `type()` 方法，参见 `QListWidgetItem`）来避免 RTTI 依赖
@@ -268,7 +280,7 @@ Foo::Foo(int a, int b)
 - **禁止**：用裸指针表达所有权；API 通过“返回裸指针 + 口头约定”隐式转移所有权。
 
 **B. `QObject` 派生类（特例：指针语义 + Qt 生命周期模型）**
-- **必须**：`QObject` 派生类**禁止拷贝/移动**，并在类内显式声明以获得清晰的编译期诊断：推荐 `Q_DISABLE_COPY(Class)`，并显式 `Class(Class &&) = delete; Class &operator=(Class &&) = delete;`。
+- **必须**：`QObject` 派生类**禁止拷贝/移动**，并在类内显式声明以获得清晰的编译期诊断：Qt6 可用时优先 `Q_DISABLE_COPY_MOVE(Class)`；若项目 Qt 版本没有该宏，才使用 `Q_DISABLE_COPY(Class)` 并显式 `Class(Class &&) = delete; Class &operator=(Class &&) = delete;`。
 - **禁止**：按值传参/按值返回 `QObject` 派生类型；禁止将 `QObject` 派生类型按值存入 `std::vector`/`QVector`/`QList` 等需要移动/拷贝的容器。
 - **必须**：需要 `moveToThread()` 的 `QObject` **禁止设置 parent**；禁止构造跨线程 parent/child 关系（parent/child 必须在同一线程）。
 - **必须**：所有权二选一且可追溯：
@@ -378,11 +390,9 @@ public:
         m_timer.start();
     }
 
-    Q_DISABLE_COPY(Controller)
-    Controller(Controller &&) = delete;
-    Controller &operator=(Controller &&) = delete;
+    Q_DISABLE_COPY_MOVE(Controller)
 
-private slots:
+private Q_SLOTS:
     void poll();
 
 private:
@@ -404,9 +414,9 @@ private:
 class Worker : public QObject
 {
     Q_OBJECT
-public slots:
+public Q_SLOTS:
     void doWork();
-signals:
+Q_SIGNALS:
     void finished();
 };
 
@@ -432,6 +442,7 @@ void startWorker(QObject *owner)
 #### 6.2.1 connect 语法与生命周期（强制）
 
 - **必须**：仅使用新式 connect（函数指针/成员函数指针/带 context 的 functor）；禁止 `SIGNAL()/SLOT()` 字符串。
+- **必须**：所有 Qt C++ 代码统一使用无关键字宏写法：`Q_SIGNALS:`、`Q_SLOTS`、`Q_EMIT`；禁止新增 `signals:`、`slots:`、裸 `emit`。
 - **必须**：使用 lambda/functor 连接时必须提供 **context**（通常为接收者/owner），禁止使用“无 context”的 functor connect 重载。
 - **必须**：lambda/functor 不得捕获可能先于连接断开而析构的裸指针；若捕获 `this`，context 必须是 `this`（或更长生命周期 owner），并优先捕获 `QPointer<T>` 做弱引用保护。
 - **推荐**：重复连接点（可能被调用多次）使用 `Qt::UniqueConnection` 防止重复连接；需要手动断开时保存 `QMetaObject::Connection` 并在合适时机 `disconnect()`。
@@ -475,14 +486,15 @@ Q_DECLARE_METATYPE(Payload)
 #### 6.3.2 Q_PROPERTY（强制）
 
 - **必须**：可变属性必须提供 `NOTIFY`；setter 必须在值未变化时早返回，避免无意义信号与绑定抖动。
-- **必须**：属性的线程亲和性要明确：若属性可能被跨线程更新，必须通过 queued 方式切回对象所属线程再修改并 emit。
+- **必须**：属性的线程亲和性要明确：若属性可能被跨线程更新，必须通过 queued 方式切回对象所属线程再修改并 `Q_EMIT`。
+- **推荐**：QML-facing、public stable、明确不允许派生类覆盖的属性写 `FINAL`；需要派生类扩展、测试替身覆盖或 API 仍在演进中的属性不强制 `FINAL`。
 
 示例（推荐写法）：
 ```cpp
 class Person : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged FINAL)
 public:
     QString name() const { return m_name; }
     void setName(const QString &name)
@@ -491,9 +503,9 @@ public:
             return;
         }
         m_name = name;
-        emit nameChanged();
+        Q_EMIT nameChanged();
     }
-signals:
+Q_SIGNALS:
     void nameChanged();
 private:
     QString m_name;
@@ -636,16 +648,16 @@ HeaderFilterRegex: '.*'
 - [ ] 单语句 if/for/while 加 braces
 - [ ] 枚举尾逗号
 - [ ] QStringLiteral / u""_qs
-- [ ] `QObject`：禁止 copy/move/按值容器；用父子树/`deleteLater()`，禁止手动 `delete`；非 `QObject` 用 `std::unique_ptr`/RAII
+- [ ] `QObject`：禁止 copy/move/按值容器；优先 `Q_DISABLE_COPY_MOVE`；用父子树/`deleteLater()`，禁止手动 `delete`；非 `QObject` 用 `std::unique_ptr`/RAII
 - [ ] 线程耗时任务用 QtConcurrent
 - [ ] 无异常：不新增 `throw`/`try`/`catch`；可能失败的 API 明确失败表达，并用 `[[nodiscard]]` 防忽略
-- [ ] 信号槽：lambda/functor connect 必须带 context；跨线程显式 `Qt::QueuedConnection`；queued 参数类型已做元类型注册
-- [ ] 元对象：`Q_PROPERTY` 可变属性必须有 `NOTIFY`，setter 仅在变更时 emit；自定义类型用于 QVariant/QML 时已注册
+- [ ] 信号槽：统一使用 `Q_SIGNALS:` / `Q_SLOTS` / `Q_EMIT`；lambda/functor connect 必须带 context；跨线程显式 `Qt::QueuedConnection`；queued 参数类型已做元类型注册
+- [ ] 元对象：`Q_PROPERTY` 可变属性必须有 `NOTIFY`，setter 仅在变更时 `Q_EMIT`；自定义类型用于 QVariant/QML 时已注册
 ```
 
 ---
 
-**文档包版本**：v1.0.6
-**最后更新**：2026-01-17
+**文档包版本**：v1.0.7
+**最后更新**：2026-07-06
 
 ---

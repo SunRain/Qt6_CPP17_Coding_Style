@@ -15,12 +15,24 @@ All code must compile as modern C++17 (GCC ≥ 11, Clang ≥ 14, MSVC ≥ 2019),
 
 ---
 
+## Guideline Package Relationship (Umbrella + Two Topics)
+
+This document is the single umbrella guideline for the Qt6 / KDE / C++17 coding-style package. It owns the baseline coding rules, lifetime rules, threading rules, error handling, tooling configuration, and general Qt conventions.
+
+Two topic documents expand this umbrella guideline and must not duplicate full rules already owned elsewhere:
+
+- `Qt_Macro_Layout_Coding_Style.md`: the sole authority for Qt / QML / moc macro layout, including where to place `Q_OBJECT`, `Q_PROPERTY`, `Q_SIGNALS:`, `Q_SLOTS`, `Q_ENUM`, metatype macros, d-pointer macros, and logging macros.
+- `Qt6_KDE_API_Parameter_Style.md`: the sole authority for Public API parameter semantics, including Borrow / Owning, view lifetimes, QML/meta-object boundary types, overload control, and compatibility.
+
+When a topic-level detail conflicts with this document's summary, the corresponding topic document wins. This document keeps summaries and cross-references only, so the three documents do not drift.
+
 ## 0 Overview
 - Compilers: GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
 - Standard: C++17 (`set(CMAKE_CXX_STANDARD 17)`)
 - Warnings: enable `-Wall -Wextra -Wpedantic`, **no-warning commits**
 - Formatting: keep a shared clang-format baseline file in the project (copy/symlink it to `.clang-format` if you want tooling auto-discovery); run `git clang-format --style=file` against the project baseline before committing
 - Forbidden: exceptions, RTTI, `dynamic_cast`, raw `new` (explicit exception for `QObject`-derived types; see Chapter 6), single-statement control blocks without braces, 64-bit enums
+- Qt macro spelling: public libraries, toolkit headers, ordinary app code, and internal code all use keyword-free macro spelling: `Q_SIGNALS:`, `Q_SLOTS`, `Q_EMIT`
 - Use templates wisely, not just because you can
 - Avoid C casts, prefer C++ casts (`static_cast`, `const_cast`, `reinterpret_cast`)
 - Don't use `dynamic_cast`; use `qobject_cast` for QObjects, or refactor your design (e.g., introduce a `type()` method; see `QListWidgetItem`)
@@ -268,7 +280,7 @@ Foo::Foo(int a, int b)
 - **Forbidden**: using raw pointers to express ownership; transferring ownership implicitly via "return a raw pointer + verbal agreement".
 
 **B. `QObject`-derived types (special case: pointer semantics + Qt lifetime model)**
-- **Required**: `QObject`-derived types **must not be copyable/movable**, and the class should declare it explicitly for clear compile-time diagnostics. Recommend `Q_DISABLE_COPY(Class)` and explicitly delete moves: `Class(Class &&) = delete; Class &operator=(Class &&) = delete;`.
+- **Required**: `QObject`-derived types **must not be copyable/movable**, and the class should declare it explicitly for clear compile-time diagnostics. Prefer `Q_DISABLE_COPY_MOVE(Class)` when it is available in Qt6. If the project Qt baseline does not provide it, use `Q_DISABLE_COPY(Class)` and explicitly delete moves: `Class(Class &&) = delete; Class &operator=(Class &&) = delete;`.
 - **Forbidden**: pass/return `QObject`-derived types by value. Do not store `QObject`-derived types by value in containers that require move/copy such as `std::vector` / `QVector` / `QList`.
 - **Required**: `QObject`s that need `moveToThread()` **must not have a parent**. Do not create cross-thread parent/child relationships (parent/child must be in the same thread).
 - **Required**: ownership must be one of the following and be traceable:
@@ -378,11 +390,9 @@ public:
         m_timer.start();
     }
 
-    Q_DISABLE_COPY(Controller)
-    Controller(Controller &&) = delete;
-    Controller &operator=(Controller &&) = delete;
+    Q_DISABLE_COPY_MOVE(Controller)
 
-private slots:
+private Q_SLOTS:
     void poll();
 
 private:
@@ -404,9 +414,9 @@ private:
 class Worker : public QObject
 {
     Q_OBJECT
-public slots:
+public Q_SLOTS:
     void doWork();
-signals:
+Q_SIGNALS:
     void finished();
 };
 
@@ -432,6 +442,7 @@ void startWorker(QObject *owner)
 #### 6.2.1 `connect` Syntax and Lifetime (Mandatory)
 
 - **Required**: use new-style `connect` only (function pointer/member function pointer/functor with context). Do not use `SIGNAL()`/`SLOT()` strings.
+- **Required**: all Qt C++ code uses keyword-free macro spelling: `Q_SIGNALS:`, `Q_SLOTS`, and `Q_EMIT`. Do not add `signals:`, `slots:`, or bare `emit`.
 - **Required**: when connecting with a lambda/functor, you must provide a **context** (typically the receiver/owner). Do not use the overload that connects a functor **without** a context.
 - **Required**: lambdas/functors must not capture raw pointers that may be destroyed before the connection is disconnected. If you capture `this`, the context must be `this` (or a longer-lived owner), and prefer capturing `QPointer<T>` for weak-reference protection.
 - **Recommended**: use `Qt::UniqueConnection` at repeated connection points (may be called multiple times) to prevent duplicate connections. If manual disconnection is needed, store `QMetaObject::Connection` and call `disconnect()` at the right time.
@@ -475,14 +486,15 @@ Q_DECLARE_METATYPE(Payload)
 #### 6.3.2 Q_PROPERTY (Mandatory)
 
 - **Required**: mutable properties must have `NOTIFY`. Setters must return early when the value does not change to avoid pointless signals and binding churn.
-- **Required**: be explicit about thread affinity. If a property may be updated cross-thread, switch back to the object's thread via queued invocation before modifying and emitting.
+- **Required**: be explicit about thread affinity. If a property may be updated cross-thread, switch back to the object's thread via queued invocation before modifying and `Q_EMIT`-ing.
+- **Recommended**: write `FINAL` for QML-facing, public stable properties that are not intended to be overridden. Do not force `FINAL` for properties that need subclass extension, test-double overrides, or are still evolving as API.
 
 Example (recommended style):
 ```cpp
 class Person : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged FINAL)
 public:
     QString name() const { return m_name; }
     void setName(const QString &name)
@@ -491,9 +503,9 @@ public:
             return;
         }
         m_name = name;
-        emit nameChanged();
+        Q_EMIT nameChanged();
     }
-signals:
+Q_SIGNALS:
     void nameChanged();
 private:
     QString m_name;
@@ -636,16 +648,16 @@ HeaderFilterRegex: '.*'
 - [ ] Braces for single-statement `if/for/while`
 - [ ] Trailing comma in enums
 - [ ] `QStringLiteral` / `u""_qs`
-- [ ] `QObject`: no copy/move/by-value containers; use parent-child/`deleteLater()`, no manual `delete`; non-`QObject` uses `std::unique_ptr`/RAII
+- [ ] `QObject`: no copy/move/by-value containers; prefer `Q_DISABLE_COPY_MOVE`; use parent-child/`deleteLater()`, no manual `delete`; non-`QObject` uses `std::unique_ptr`/RAII
 - [ ] Use QtConcurrent for long-running threaded tasks
 - [ ] No exceptions: do not add `throw`/`try`/`catch`; "may fail" APIs report failure explicitly and are `[[nodiscard]]`
-- [ ] Signals/slots: lambda/functor connect must have context; cross-thread uses explicit `Qt::QueuedConnection`; queued parameter types are registered as metatypes
-- [ ] Meta-object: mutable `Q_PROPERTY` must have `NOTIFY`; setters emit only when changed; custom types are registered when used with QVariant/QML
+- [ ] Signals/slots: consistently use `Q_SIGNALS:` / `Q_SLOTS` / `Q_EMIT`; lambda/functor connect must have context; cross-thread uses explicit `Qt::QueuedConnection`; queued parameter types are registered as metatypes
+- [ ] Meta-object: mutable `Q_PROPERTY` must have `NOTIFY`; setters `Q_EMIT` only when changed; custom types are registered when used with QVariant/QML
 ```
 
 ---
 
-**Document Package Version**: v1.0.6  
-**Last Updated**: 2026-01-17
+**Document Package Version**: v1.0.7
+**Last Updated**: 2026-07-06
 
 ---
