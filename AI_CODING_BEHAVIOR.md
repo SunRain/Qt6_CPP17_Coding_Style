@@ -18,11 +18,13 @@
 - 🔍 代码审查时会严格检查这些项目
 
 **包含内容**：
-- 命名规范（`m_`、`s_`、`k` 前缀）
+- 命名规范（普通类 private/protected 成员使用 `m_`；合法 `FooPrivate` 的 public 状态成员使用无前缀小驼峰；静态成员使用 `s_`；常量使用 `k` 前缀）
 - 代码格式（4 空格缩进、单语句必须加括号）
 - Qt 6 专属约定（新式信号槽、`QStringLiteral`、`Q_OBJECT` 宏）
 - 禁止项（异常、RTTI、`dynamic_cast`、默认禁止裸 `new`/`delete`（`QObject` 派生允许裸 `new`，但必须父子树或 `deleteLater()`；禁止手动 `delete` `QObject`）、C 风格转换）
 - `QObject` 派生语义：禁止 copy/move/按值容器；仅使用指针/引用语义，并用 parent ownership / `deleteLater()` 管理生命周期（详见 `Qt6_CPP17_Coding_Style.md` 第 6 章）
+
+成员命名必须先判断声明上下文：普通类 private/protected 非静态成员使用 `m_`；只有与公共类明确配对、定义在内部实现文件且未导出的 `FooPrivate`，其 public 状态成员才使用无前缀小驼峰。数据型 struct 的 public 字段同样不使用 `m_`。`q_ptr`、`d_ptr`、`d`、`q` 保留 Qt 固定名称。禁止通过扩大 public 作用域规避普通成员命名规则。
 
 **示例**：
 ```cpp
@@ -181,7 +183,7 @@ bool MainWindow::loadConfig(QString *errorMsg) {
 1. ✅ 这是维护旧代码，保持原有风格
 2. ✅ 继续使用 `bool + 输出参数` 模式（不强制改为 `std::optional`）
 3. ✅ 字符串构造使用 `QStringLiteral`（强制规范）
-4. ✅ 成员变量使用 `m_` 前缀（强制规范）
+4. ✅ `MainWindow` 是普通类，其 private 成员继续使用 `m_` 前缀
 
 **AI 生成的代码**：
 ```cpp
@@ -321,5 +323,5 @@ QPair<QMap<QString, int>::iterator, bool> insertValue(
 
 ---
 
-**文档包版本**：v1.0.6
-**最后更新**：2026-01-17
+**文档包版本**：v1.0.7
+**最后更新**：2026-07-23

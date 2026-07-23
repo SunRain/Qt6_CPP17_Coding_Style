@@ -20,6 +20,16 @@ English docs: [en/](en/)
    - [`CPP_Code_Comment_Guidelines.md`](CPP_Code_Comment_Guidelines.md)
    - [`AI_CODING_BEHAVIOR.md`](AI_CODING_BEHAVIOR.md)
 
+## 核心命名规则
+
+- 普通类 private/protected 非静态成员使用 `m_`。
+- 合法内部 PIMPL `FooPrivate` 的 public 状态成员使用无前缀小驼峰。
+- 数据型 struct 的 public 字段使用无前缀小驼峰。
+- 静态成员使用 `s_`，常量使用 `k` 前缀。
+- `q_ptr`、`d_ptr`、`d`、`q` 保留 Qt d-pointer 固定名称。
+
+PIMPL 例外的完整适用条件与通用 Qt 6 示例见 [`Qt6_CPP17_Coding_Style.md`](Qt6_CPP17_Coding_Style.md#21-qt-上游风格-pimpl-私有类)。
+
 ---
 
 ## 目录结构

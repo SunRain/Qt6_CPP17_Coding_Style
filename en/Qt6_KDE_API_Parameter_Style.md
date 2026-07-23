@@ -407,6 +407,8 @@ void Foo::setName(const QString &name)    { setNameImpl(d, name); }
 void Foo::setNameView(QAnyStringView name){ setNameImpl(d, name.toString()); }
 ```
 
+> Naming note: `d->name` follows the Qt-upstream PIMPL naming exception in the main guide. Public state members of an approved `FooPrivate` use unprefixed camelCase; this document only requires `name` to be stored as an owning type and does not redefine member-name categories.
+
 Benefits:
 - single logic path, less duplication
 - if the caller passes a temporary `QString`, the implementation can move naturally

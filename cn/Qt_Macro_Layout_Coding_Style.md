@@ -97,7 +97,8 @@ private:
 | `Q_DISABLE_COPY` | `private:` 开头 | 仅禁用复制 |
 | `Q_DISABLE_MOVE` | `private:` 开头 | 仅禁用移动 |
 | `Q_DISABLE_COPY_MOVE` | `private:` 开头 | QObject 派生类优先使用 |
-| `Q_DECLARE_PRIVATE` / `Q_DECLARE_PUBLIC` | `private:` | d-pointer 模式内部桥接 |
+| `Q_DECLARE_PRIVATE` | Public API 类的 `private:` | 从公共类访问 `d_ptr` |
+| `Q_DECLARE_PUBLIC` | `FooPrivate` 类体开头、`public:` 之前 | 从私有实现访问 `q_ptr` |
 | `Q_D` / `Q_Q` | 函数体开头附近 | d-pointer 函数体内部使用 |
 | `Q_DECLARE_METATYPE` | 类型完整定义之后，头文件末尾 | namespace 类型通常在 namespace 外写全限定名 |
 | `Q_DECLARE_TYPEINFO` | 类型完整定义之后 | value type 性能/移动语义声明 |
@@ -374,7 +375,28 @@ Q_LOGGING_CATEGORY(hluiRuntime, "deckshell.hlui.runtime")
 推荐：
 
 ```cpp
+class PublicApi;
 class PublicApiPrivate;
+
+class PublicApiPrivate
+{
+    Q_DECLARE_PUBLIC(PublicApi)
+
+public:
+    explicit PublicApiPrivate(PublicApi *q)
+        : q_ptr(q)
+    {
+    }
+
+    void refresh();
+
+    QString displayName;
+    QUrl sourceUrl;
+    bool enabled = true;
+
+private:
+    PublicApi *q_ptr = nullptr;
+};
 
 class PublicApi : public QObject
 {
@@ -383,6 +405,7 @@ class PublicApi : public QObject
 public:
     explicit PublicApi(QObject *parent = nullptr);
     ~PublicApi() override;
+    void refresh();
 
 private:
     Q_DECLARE_PRIVATE(PublicApi)
@@ -404,7 +427,10 @@ void PublicApi::refresh()
 
 要求：
 
-- `Q_DECLARE_PRIVATE` / `Q_DECLARE_PUBLIC` 放 `private:`。
+- Public API 类中的 `Q_DECLARE_PRIVATE` 和 `d_ptr` 放在 `private:`。
+- `FooPrivate` 中的 `Q_DECLARE_PUBLIC` 推荐放在类体开头、`public:` 之前。
+- `FooPrivate` 自行声明的 `q_ptr` 放在 `private:`；继承 `QObjectPrivate` 时使用基类提供的 `q_ptr`。`q_ptr` 是非拥有型回指，不得按 owning 成员理解。
+- 合法 `FooPrivate` 的 public 状态成员采用无前缀小驼峰；private/protected 成员仍使用 `m_`。
 - `Q_D` / `Q_Q` 放函数体开头附近。
 - d-pointer 只服务 ABI/API 边界或复杂私有状态，不为小类过度引入。
 
@@ -453,4 +479,18 @@ class / struct 声明
   Q_DECLARE_METATYPE / Q_DECLARE_TYPEINFO / Q_DECLARE_INTERFACE
   QML_DECLARE_TYPEINFO
 #endif
+```
+
+内部 PIMPL 私有类：
+
+```text
+FooPrivate 类体
+  Q_DECLARE_PUBLIC(Foo)
+  public:
+    构造析构
+    实现 helper
+    无前缀小驼峰状态成员
+  private:
+    m_ 前缀的私有状态成员（如有）
+    q_ptr（未继承 QObjectPrivate 时）
 ```

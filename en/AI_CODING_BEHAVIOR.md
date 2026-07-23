@@ -22,11 +22,13 @@ This project classifies coding standards into three tiers:
 - 🔍 Code reviews should check these items strictly.
 
 **Includes**:
-- Naming conventions (`m_`, `s_`, `k` prefixes)
+- Naming conventions (`m_` for private/protected members of ordinary classes; unprefixed camelCase for public state in approved `FooPrivate` classes; `s_` for static members; `k` for constants)
 - Formatting (4-space indentation; braces required even for single-statement blocks)
 - Qt 6 conventions (new-style signal/slot connections, `QStringLiteral`, `Q_OBJECT`)
 - Forbidden items (exceptions, RTTI, `dynamic_cast`, raw `new`/`delete` forbidden by default; raw `new` allowed for `QObject`-derived types but must use parent ownership or `deleteLater()`; manual `delete` for `QObject` is forbidden; C-style casts)
 - `QObject` value semantics: copy/move/by-value containers are forbidden; use pointer/reference semantics and manage lifetime with parent ownership / `deleteLater()` (see Chapter 6 of the coding-style guide in this directory)
+
+Classify the declaration context before naming a member. Private/protected non-static members of ordinary classes use `m_`. Only an unexported `FooPrivate` that explicitly pairs with a public class and is defined in an internal implementation file may use unprefixed camelCase for public state. Public fields of data-only structs also omit `m_`. Keep the fixed Qt names `q_ptr`, `d_ptr`, `d`, and `q`. Widening access in an ordinary class to bypass the member-prefix rule is forbidden.
 
 **Example**:
 ```cpp
@@ -186,7 +188,7 @@ bool MainWindow::loadConfig(QString *errorMsg) {
 1. ✅ Maintenance → keep the existing style
 2. ✅ Keep the `bool + out-parameter` pattern (do not force `std::optional`)
 3. ✅ Use `QStringLiteral` for string literals (mandatory)
-4. ✅ Keep `m_` prefix for member variables (mandatory)
+4. ✅ `MainWindow` is an ordinary class, so its private members keep the `m_` prefix
 
 **Generated code**:
 ```cpp
@@ -327,5 +329,5 @@ This directory provides a localized reading set that can be reviewed and distrib
 
 ---
 
-**Document Package Version**: v1.0.6  
-**Last Updated**: 2026-01-17
+**Document Package Version**: v1.0.7
+**Last Updated**: 2026-07-23

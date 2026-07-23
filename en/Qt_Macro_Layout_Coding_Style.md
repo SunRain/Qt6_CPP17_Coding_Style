@@ -98,7 +98,8 @@ private:
 | `Q_DISABLE_COPY` | Top of `private:` | Disables copy only |
 | `Q_DISABLE_MOVE` | Top of `private:` | Disables move only |
 | `Q_DISABLE_COPY_MOVE` | Top of `private:` | Preferred for `QObject`-derived classes |
-| `Q_DECLARE_PRIVATE` / `Q_DECLARE_PUBLIC` | `private:` | Internal bridge for the d-pointer pattern |
+| `Q_DECLARE_PRIVATE` | `private:` of the Public API class | Access to `d_ptr` from the public class |
+| `Q_DECLARE_PUBLIC` | At the start of `FooPrivate`, before `public:` | Access to `q_ptr` from the private implementation |
 | `Q_D` / `Q_Q` | Near the beginning of function bodies | Used inside d-pointer functions |
 | `Q_DECLARE_METATYPE` | After the complete type definition, near the header end | Namespace types normally use fully qualified names outside the namespace |
 | `Q_DECLARE_TYPEINFO` | After the complete type definition | Declares value-type performance / move semantics |
@@ -375,7 +376,28 @@ Requirements:
 Recommended:
 
 ```cpp
+class PublicApi;
 class PublicApiPrivate;
+
+class PublicApiPrivate
+{
+    Q_DECLARE_PUBLIC(PublicApi)
+
+public:
+    explicit PublicApiPrivate(PublicApi *q)
+        : q_ptr(q)
+    {
+    }
+
+    void refresh();
+
+    QString displayName;
+    QUrl sourceUrl;
+    bool enabled = true;
+
+private:
+    PublicApi *q_ptr = nullptr;
+};
 
 class PublicApi : public QObject
 {
@@ -384,6 +406,7 @@ class PublicApi : public QObject
 public:
     explicit PublicApi(QObject *parent = nullptr);
     ~PublicApi() override;
+    void refresh();
 
 private:
     Q_DECLARE_PRIVATE(PublicApi)
@@ -405,7 +428,10 @@ void PublicApi::refresh()
 
 Requirements:
 
-- Put `Q_DECLARE_PRIVATE` / `Q_DECLARE_PUBLIC` in `private:`.
+- Put `Q_DECLARE_PRIVATE` and `d_ptr` in the `private:` section of the Public API class.
+- Put `Q_DECLARE_PUBLIC` at the start of `FooPrivate`, preferably before `public:`.
+- Keep a locally declared `q_ptr` in `private:` when `FooPrivate` does not inherit `QObjectPrivate`; use the inherited `q_ptr` otherwise. `q_ptr` is a non-owning back-pointer, not an owning member.
+- Approved `FooPrivate` public state members use unprefixed camelCase; private/protected members still use `m_`.
 - Put `Q_D` / `Q_Q` near the beginning of function bodies.
 - Use a d-pointer only for ABI/API boundaries or complex private state. Do not introduce it for small classes without a need.
 
@@ -454,4 +480,18 @@ outside class:
   Q_DECLARE_METATYPE / Q_DECLARE_TYPEINFO / Q_DECLARE_INTERFACE
   QML_DECLARE_TYPEINFO
 #endif
+```
+
+Internal PIMPL private class:
+
+```text
+FooPrivate class body
+  Q_DECLARE_PUBLIC(Foo)
+  public:
+    constructors/destructor
+    implementation helpers
+    unprefixed camelCase state members
+  private:
+    m_-prefixed private state members (if any)
+    q_ptr (when not inherited from QObjectPrivate)
 ```

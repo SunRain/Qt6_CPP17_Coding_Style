@@ -68,8 +68,10 @@ English | 简体中文 | 原文
 | 类型 | 风格 | 正例 | 反例 |
 |---|---|---|---|
 | 类 | 大驼峰 | `class MainWindow` | `class main_window` |
-| 函数/变量 | 小驼峰 | `void updateData()` | `void updatedata()` |
-| 成员变量 | `m_` 前缀 | `int m_count` | `int count_` |
+| 函数/局部变量/参数 | 小驼峰 | `void updateData()` | `void updatedata()` |
+| 普通类 private/protected 非静态成员 | `m_` + 小驼峰 | `int m_count` | `int count` |
+| 内部 PIMPL `FooPrivate` 的 public 状态成员 | 小驼峰，无前缀 | `QUrl documentUrl` | `QUrl m_documentUrl` |
+| 数据型 struct 的 public 字段 | 小驼峰，无前缀 | `int requestCount` | `int m_requestCount` |
 | 静态/全局 | `s_` 前缀 | `static QObject *s_instance` | `static QObject *instance` |
 | 常量 | `k` 前缀 | `constexpr int kMaxDepth = 3` | `const int MAX_DEPTH = 3` |
 | 枚举值 | 驼峰 + 尾逗号 | `enum class Direction { North, South, };` | `enum Direction { NORTH };` |
@@ -79,6 +81,66 @@ English | 简体中文 | 原文
 - 单字符变量名仅适用于计数器或临时变量，且其含义必须显而易见
 - 变量在“需要时再声明”，不要提前声明
 - 变量与函数名以小写字母开头；名称中的后续单词以大写字母开头（camelCase）
+
+### 2.1 Qt 上游风格 PIMPL 私有类
+
+只有同时满足以下条件，才允许 public 状态成员不使用 `m_`：
+
+1. 类型与公共类形成明确的 `Foo` / `FooPrivate` 配对。
+2. 类型定义在 `.cpp`、`private/` 或 `_p.h` 等内部实现文件中。
+3. 类型未导出，也不属于稳定 Public API。
+4. 类型通过 `Q_DECLARE_PUBLIC(Foo)`、继承 `QObjectPrivate`，或等价机制承担 `Foo` 的私有实现职责。
+5. 无前缀规则只适用于该私有类 `public:` 区域的非静态状态成员。
+
+`FooPrivate` 的 private/protected 成员仍使用 `m_`。不得通过把普通类成员移动到 `public:` 来规避 `m_` 规则。
+
+PIMPL 私有类中的静态成员继续使用 `s_`。`q_ptr`、`d_ptr` 以及 `Q_D` / `Q_Q` 生成的局部变量 `d`、`q` 是 Qt 固定名称，不参与普通成员命名检查。
+
+通用 Qt 6 示例：
+
+```cpp
+class DocumentController;
+
+class DocumentControllerPrivate
+{
+    Q_DECLARE_PUBLIC(DocumentController)
+
+public:
+    explicit DocumentControllerPrivate(DocumentController *q)
+        : q_ptr(q)
+    {
+    }
+
+    QString documentTitle;
+    QUrl documentUrl;
+    QByteArray cachedContent;
+    QHash<QString, QVariant> properties;
+    QPointer<QObject> lifetimeContext;
+    QMetaObject::Connection contextDestroyedConnection;
+    bool dirty = false;
+
+    struct PendingChange
+    {
+        QString propertyName;
+        QVariant value;
+    };
+
+    QList<PendingChange> pendingChanges;
+
+private:
+    DocumentController *q_ptr = nullptr;
+};
+
+class DocumentController : public QObject
+{
+    Q_OBJECT
+
+private:
+    Q_DECLARE_PRIVATE(DocumentController)
+    Q_DISABLE_COPY_MOVE(DocumentController)
+    QScopedPointer<DocumentControllerPrivate> d_ptr;
+};
+```
 
 ---
 
@@ -634,6 +696,21 @@ WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
 ```
 
+成员命名检查不得使用无条件的 `MemberPrefix: 'm_'`。建议按访问级别配置，并对 Qt d-pointer 固定名称建立白名单：
+
+```yaml
+CheckOptions:
+  readability-identifier-naming.PrivateMemberPrefix: 'm_'
+  readability-identifier-naming.ProtectedMemberPrefix: 'm_'
+  readability-identifier-naming.PublicMemberPrefix: ''
+  readability-identifier-naming.PublicMemberCase: 'camelBack'
+  readability-identifier-naming.PrivateMemberIgnoredRegexp: '^(q_ptr|d_ptr)$'
+  readability-identifier-naming.ProtectedMemberIgnoredRegexp: '^(q_ptr|d_ptr)$'
+  readability-identifier-naming.PublicMemberIgnoredRegexp: '^(q_ptr|d_ptr)$'
+```
+
+clang-tidy 不能完整判断 public 字段属于合法 PIMPL、数据型 struct，还是普通 public API 类。项目还应使用 AST 或等价门禁识别前两类例外，并拒绝普通 public API 类通过公开状态规避 `m_`。
+
 ---
 
 ## 11 提交前自检清单（Copy & Paste）
@@ -644,7 +721,11 @@ HeaderFilterRegex: '.*'
 - [ ] clang-format --dry-run 无差异
 - [ ] clang-tidy 零警告
 - [ ] 无异常/RTTI/dynamic_cast
-- [ ] 成员变量 m_xxx，静态 s_xxx
+- [ ] 普通类 private/protected 成员使用 m_xxx
+- [ ] 合法 FooPrivate 的 public 状态成员使用无前缀 lowerCamelCase
+- [ ] 数据型 struct 的 public 字段使用无前缀 lowerCamelCase
+- [ ] 静态成员使用 s_xxx，q_ptr/d_ptr/d/q 保留 Qt 固定名称
+- [ ] 普通类未通过扩大 public 作用域规避 m_ 规则
 - [ ] 单语句 if/for/while 加 braces
 - [ ] 枚举尾逗号
 - [ ] QStringLiteral / u""_qs
@@ -658,6 +739,6 @@ HeaderFilterRegex: '.*'
 ---
 
 **文档包版本**：v1.0.7
-**最后更新**：2026-07-06
+**最后更新**：2026-07-23
 
 ---

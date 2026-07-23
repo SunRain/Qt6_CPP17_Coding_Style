@@ -400,6 +400,8 @@ void Foo::setName(const QString &name)   { setNameImpl(d, name); }
 void Foo::setNameView(QAnyStringView name)   { setNameImpl(d, name.toString()); }
 ```
 
+> 命名说明：示例中的 `d->name` 遵循总纲的 Qt 上游 PIMPL 命名例外。合法 `FooPrivate` 的 public 状态成员使用无前缀小驼峰；本规范只约束 `name` 必须以 owning 类型保存，不改变成员命名分类。
+
 优点：
 - 逻辑单点：减少重复与分支。
 - 调用方传临时 `QString` 时，内部能自然 move。
