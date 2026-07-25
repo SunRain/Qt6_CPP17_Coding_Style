@@ -22,13 +22,14 @@ English docs: [en/](en/)
 
 ## 核心命名规则
 
-- 普通类 private/protected 非静态成员使用 `m_`。
-- 合法内部 PIMPL `FooPrivate` 的 public 状态成员使用无前缀小驼峰。
-- 数据型 struct 的 public 字段使用无前缀小驼峰。
+- 先明确批准类型采用直接字段模型，再决定字段命名；命名规则本身不授权公开状态。
+- 只有 record-like 数据类型，以及内部 PIMPL / Qt shared-data 实现类型可以获得直接字段授权。
+- 获准的 public 非静态直接字段使用无前缀小驼峰；private/protected 非静态状态使用 `m_`。
+- `class/struct`、`Private` / `Data` 后缀、内部路径和 `QSharedData` 继承均不自动授权公开状态。
 - 静态成员使用 `s_`，常量使用 `k` 前缀。
 - `q_ptr`、`d_ptr`、`d`、`q` 保留 Qt d-pointer 固定名称。
 
-PIMPL 例外的完整适用条件与通用 Qt 6 示例见 [`Qt6_CPP17_Coding_Style.md`](Qt6_CPP17_Coding_Style.md#21-qt-上游风格-pimpl-私有类)。
+两阶段裁决、record-like、普通行为类、经典 PIMPL，以及隐式/显式 shared-data 示例见 [`Qt6_CPP17_Coding_Style.md`](Qt6_CPP17_Coding_Style.md#21-直接字段数据类型与-qt-上游私有数据风格)。
 
 ---
 

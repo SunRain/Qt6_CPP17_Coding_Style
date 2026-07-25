@@ -566,9 +566,17 @@ connect(sender, &Sender::nameChanged,
 
 ---
 
-## 附录 A) 隐式共享数据（`QSharedDataPointer` / `QExplicitlySharedDataPointer`）：`detach()` 约定（实现侧）
+## 附录 A) Qt shared-data 实现类型：命名、兼容性与 `detach()`（实现侧）
 
 > 本附录用于减少 code review 中“该不该手写 `detach()`”的争论；它属于实现侧约定，不改变本文关于 public API 参数语义与类型选择的主规则。
+
+### A.0 直接字段与兼容性边界
+
+- `QSharedDataPointer<T>` 与 `QExplicitlySharedDataPointer<T>` 统一归类为 Qt shared-data 持有机制；只有前者提供隐式写时分离。不得把两者统称为“隐式共享指针”。
+- `T` 继承 `QSharedData` 不自动授权公开状态。只有 `T` 已被明确批准为内部 shared-data 实现类型时，其 public 非静态状态才使用无前缀小驼峰；private/protected 状态仍使用 `m_`。
+- 真正可能被多个公开值对象共享的 `T` 默认不保存某一个 owner 专属的 `q_ptr`，也通常不使用 `Q_DECLARE_PUBLIC`。
+- 已发布 record-like Public API 的字段名与类型是源码合同；重命名会破坏源码兼容，字段类型、顺序、增删还可能破坏 ABI 或聚合初始化调用。
+- 若 shared-data 实现类型完整隐藏在 `.cpp` / private header 中，且公开类只保留尺寸稳定的持有句柄，调整 data 字段通常不改变公开类 ABI；若 data 类型被导出、出现在 public header 的 inline 实现中，或字段参与持久化/序列化合同，则必须按相应 API、ABI 或数据迁移变更处理。
 
 ### A.1 `QSharedDataPointer`：通常不需要手写 `detach()`
 

@@ -1113,7 +1113,7 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-**Package version**: v1.0.7
-**Last updated**: 2026-07-07
+**Package version**: v1.1.0
+**Last updated**: 2026-07-25
 
 ---

@@ -367,7 +367,9 @@ Q_LOGGING_CATEGORY(hluiRuntime, "deckshell.hlui.runtime")
 - category 字符串是诊断合同，命名应稳定。
 - 不在头文件定义 `Q_LOGGING_CATEGORY`，避免重复定义。
 
-## 14. d-pointer 宏规范
+## 14. d-pointer 宏与 Qt shared-data 边界
+
+### 14.1 经典 PIMPL
 
 推荐：
 
@@ -427,9 +429,33 @@ void PublicApi::refresh()
 - Public API 类中的 `Q_DECLARE_PRIVATE` 和 `d_ptr` 放在 `private:`。
 - `FooPrivate` 中的 `Q_DECLARE_PUBLIC` 推荐放在类体开头、`public:` 之前。
 - `FooPrivate` 自行声明的 `q_ptr` 放在 `private:`；继承 `QObjectPrivate` 时使用基类提供的 `q_ptr`。`q_ptr` 是非拥有型回指，不得按 owning 成员理解。
-- 合法 `FooPrivate` 的 public 状态成员采用无前缀小驼峰；private/protected 成员仍使用 `m_`。
+- `FooPrivate` 经直接字段模型授权后，其 public 非静态状态采用无前缀小驼峰；private/protected 非静态状态仍使用 `m_`。`Private` 后缀和宏本身不自动授权公开状态。
 - `Q_D` / `Q_Q` 放函数体开头附近。
 - d-pointer 只服务 ABI/API 边界或复杂私有状态，不为小类过度引入。
+
+### 14.2 Qt shared-data 实现类型
+
+`QSharedDataPointer<T>` / `QExplicitlySharedDataPointer<T>` 属于 shared-data 持有机制，不自动形成经典 `Foo` / `FooPrivate` 关系：
+
+- 不要仅因 data 类型继承 `QSharedData` 就加入 `Q_DECLARE_PUBLIC` / `Q_DECLARE_PRIVATE`。
+- 只有经直接字段模型授权的内部 shared-data 实现类型，其 public 非静态状态才使用无前缀小驼峰；private/protected 状态仍使用 `m_`。
+- 持有者中的 `d` 是 Qt 固定句柄名。真正可能被多个公开值对象共享的 data 默认不保存某一个 owner 专属的 `q_ptr`。
+- `QSharedDataPointer` 的非 const 写入自动 detach；`QExplicitlySharedDataPointer` 需要持有者在要求写时分离时先显式 `detach()`。
+
+```cpp
+class DocumentValueData : public QSharedData
+{
+public:
+    QString title;
+    QUrl sourceUrl;
+};
+
+class DocumentValue
+{
+private:
+    QSharedDataPointer<DocumentValueData> d;
+};
+```
 
 ## 15. 注释规范
 

@@ -86,5 +86,5 @@ When generating C++ code, add comments according to the following rules. Keep on
 
 ---
 
-**Document Package Version**: v1.0.7
-**Last Updated**: 2026-05-28
+**Document Package Version**: v1.1.0
+**Last Updated**: 2026-07-25

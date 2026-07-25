@@ -569,9 +569,17 @@ The most practical implementation is a compile-only test target under `tests/` t
 
 ---
 
-## Appendix A) Implicitly shared data (`QSharedDataPointer` / `QExplicitlySharedDataPointer`): `detach()` conventions (implementation-side)
+## Appendix A) Qt Shared-Data Implementation Types: Naming, Compatibility, and `detach()`
 
 > This appendix exists to reduce debates in code review about whether to hand-write `detach()`. It is implementation-side guidance and does not change the main rules in this document about Public API parameter semantics and type choices.
+
+### A.0 Direct-Field and Compatibility Boundaries
+
+- `QSharedDataPointer<T>` and `QExplicitlySharedDataPointer<T>` are both Qt shared-data holder mechanisms; only the former provides implicit copy-on-write detaching. Do not call both of them implicitly shared pointers.
+- Inheriting `QSharedData` does not authorize `T` to expose state. Only when `T` is explicitly approved as an internal shared-data implementation type does its public non-static state use unprefixed lowerCamelCase; private/protected state still uses `m_`.
+- A `T` that can genuinely be shared by multiple public value objects does not, by default, store a per-owner `q_ptr` or use `Q_DECLARE_PUBLIC`.
+- Field names and types in an already published record-like Public API are source contracts. Renaming a field breaks source compatibility; changing field types, order, or presence may also break ABI or aggregate-initialization call sites.
+- When the shared-data implementation type is fully hidden in a `.cpp` / private header and the public class retains only a size-stable holder, changing data fields normally does not change the public class ABI. If the data type is exported, used by inline implementation in a public header, or participates in a persistence/serialization contract, treat the change as the corresponding API, ABI, or data-migration change.
 
 ### A.1 `QSharedDataPointer`: you usually do not need to call `detach()` manually
 

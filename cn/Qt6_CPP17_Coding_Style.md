@@ -69,9 +69,8 @@ English | 简体中文 | 原文
 |---|---|---|---|
 | 类 | 大驼峰 | `class MainWindow` | `class main_window` |
 | 函数/局部变量/参数 | 小驼峰 | `void updateData()` | `void updatedata()` |
-| 普通类 private/protected 非静态成员 | `m_` + 小驼峰 | `int m_count` | `int count` |
-| 内部 PIMPL `FooPrivate` 的 public 状态成员 | 小驼峰，无前缀 | `QUrl documentUrl` | `QUrl m_documentUrl` |
-| 数据型 struct 的 public 字段 | 小驼峰，无前缀 | `int requestCount` | `int m_requestCount` |
+| 普通类 private/protected 非静态状态成员 | `m_` + 小驼峰 | `int m_count` | `int count` |
+| 经明确批准的 public 非静态直接字段 | 小驼峰，无前缀 | `QUrl sourceUrl` | `QUrl m_sourceUrl` |
 | 静态/全局 | `s_` 前缀 | `static QObject *s_instance` | `static QObject *instance` |
 | 常量 | `k` 前缀 | `constexpr int kMaxDepth = 3` | `const int MAX_DEPTH = 3` |
 | 枚举值 | 驼峰 + 尾逗号 | `enum class Direction { North, South, };` | `enum Direction { NORTH };` |
@@ -82,31 +81,69 @@ English | 简体中文 | 原文
 - 变量在“需要时再声明”，不要提前声明
 - 变量与函数名以小写字母开头；名称中的后续单词以大写字母开头（camelCase）
 
-### 2.1 Qt 上游风格 PIMPL 私有类
+### 2.1 直接字段数据类型与 Qt 上游私有数据风格
 
-只有同时满足以下条件，才允许 public 状态成员不使用 `m_`：
+成员访问模型与成员命名必须分两阶段裁决。命名规则不能反过来授权公开状态。
 
-1. 类型与公共类形成明确的 `Foo` / `FooPrivate` 配对。
-2. 类型定义在 `.cpp`、`private/` 或 `_p.h` 等内部实现文件中。
-3. 类型未导出，也不属于稳定 Public API。
-4. 类型通过 `Q_DECLARE_PUBLIC(Foo)`、继承 `QObjectPrivate`，或等价机制承担 `Foo` 的私有实现职责。
-5. 无前缀规则只适用于该私有类 `public:` 区域的非静态状态成员。
+#### 第一阶段：批准直接字段模型
 
-`FooPrivate` 的 private/protected 成员仍使用 `m_`。不得通过把普通类成员移动到 `public:` 来规避 `m_` 规则。
+只有以下两类类型可以明确批准 public 非静态状态采用直接字段模型：
 
-PIMPL 私有类中的静态成员继续使用 `s_`。`q_ptr`、`d_ptr` 以及 `Q_D` / `Q_Q` 生成的局部变量 `d`、`q` 是 Qt 固定名称，不参与普通成员命名检查。
+1. **record-like 数据类型**：主要职责是承载一组数据，直接字段访问本身就是类型接口；类型不依赖 setter 拦截写入来维护关键不变量。少量不改变记录本质的构造、比较或转换函数不影响该判断。
+2. **内部 PIMPL / Qt shared-data 实现类型**：定义在 `.cpp`、`private/`、`_p.h` 或等价内部实现文件，不导出，也不是稳定 Public API；它要么与公共类形成明确的 `Foo` / `FooPrivate` 实现关系，要么作为 `QSharedDataPointer<T>` / `QExplicitlySharedDataPointer<T>` 持有的内部数据实现类型。
 
-通用 Qt 6 示例：
+以下事实均不能单独批准直接字段模型：使用 `class` 或 `struct`、成员已经位于 `public:`、类型名以 `Private` / `Data` 结尾、类型位于内部目录、继承 `QSharedData`。普通 manager、controller、service、worker 和其他行为类默认保持封装；不得通过扩大访问权限规避 `m_` 规则。
+
+record-like 类型若属于已发布 Public API，其 public 字段名和类型构成源码合同，字段布局还可能构成 ABI 合同。批准直接字段模型必须同时接受相应兼容性责任。
+
+#### 第二阶段：按已批准的访问模型命名
+
+- 经批准的 public 非静态直接字段使用无前缀小驼峰。
+- private/protected 非静态状态成员使用 `m_` + 小驼峰，包括上述类型中未公开的状态。
+- 静态状态继续使用 `s_`；本节不改变现有静态/全局命名规则。
+- `d`、`d_ptr`、`q_ptr` 以及 `Q_D` / `Q_Q` 生成的局部变量 `d`、`q` 是 Qt 固定名称，不改写为普通成员前缀形式。
+
+#### record-like 数据类型
 
 ```cpp
-class DocumentController;
-
-class DocumentControllerPrivate
+struct DocumentSnapshot
 {
-    Q_DECLARE_PUBLIC(DocumentController)
+    QString title;
+    QUrl sourceUrl;
+    QDateTime modifiedAt;
+    bool readOnly = false;
+};
+```
+
+普通行为类不因使用 `struct` 或公开字段更方便而获得授权：
+
+```cpp
+class DocumentController : public QObject
+{
+    Q_OBJECT
 
 public:
-    explicit DocumentControllerPrivate(DocumentController *q)
+    explicit DocumentController(QObject *parent = nullptr);
+    void reload();
+
+private:
+    QString m_documentTitle;
+    QUrl m_sourceUrl;
+    bool m_reloadPending = false;
+};
+```
+
+#### 经典 PIMPL 私有类
+
+```cpp
+class DocumentSession;
+
+class DocumentSessionPrivate
+{
+    Q_DECLARE_PUBLIC(DocumentSession)
+
+public:
+    explicit DocumentSessionPrivate(DocumentSession *q)
         : q_ptr(q)
     {
     }
@@ -128,19 +165,83 @@ public:
     QList<PendingChange> pendingChanges;
 
 private:
-    DocumentController *q_ptr = nullptr;
+    DocumentSession *q_ptr = nullptr;
 };
 
-class DocumentController : public QObject
+class DocumentSession : public QObject
 {
     Q_OBJECT
 
+public:
+    explicit DocumentSession(QObject *parent = nullptr);
+    ~DocumentSession() override;
+
 private:
-    Q_DECLARE_PRIVATE(DocumentController)
-    Q_DISABLE_COPY_MOVE(DocumentController)
-    QScopedPointer<DocumentControllerPrivate> d_ptr;
+    Q_DECLARE_PRIVATE(DocumentSession)
+    Q_DISABLE_COPY_MOVE(DocumentSession)
+    QScopedPointer<DocumentSessionPrivate> d_ptr;
 };
 ```
+
+#### Qt shared-data 实现类型
+
+`QSharedDataPointer<T>` 提供隐式写时分离：通过非 const 路径写入时自动 detach。`QExplicitlySharedDataPointer<T>` 不自动分离；需要值语义写时分离时，由持有者在写入前显式调用 `detach()`。两种 data 类型的 public 状态命名规则相同，差别只在持有者的写入策略。
+
+下例中的 `new T` 在同一构造表达式中立即交给 shared-data 持有者接管，不形成裸 owning 指针。
+
+```cpp
+class DocumentValueData : public QSharedData
+{
+public:
+    QString title;
+    QUrl sourceUrl;
+    QDateTime modifiedAt;
+};
+
+class DocumentValue
+{
+public:
+    DocumentValue()
+        : d(new DocumentValueData)
+    {
+    }
+
+    void setTitle(const QString &title)
+    {
+        d->title = title; // 非 const 访问按需自动 detach
+    }
+
+private:
+    QSharedDataPointer<DocumentValueData> d;
+};
+
+class SharedPaletteData : public QSharedData
+{
+public:
+    QString name;
+    QColor accentColor;
+};
+
+class SharedPalette
+{
+public:
+    SharedPalette()
+        : d(new SharedPaletteData)
+    {
+    }
+
+    void setAccentColor(const QColor &accentColor)
+    {
+        d.detach();
+        d->accentColor = accentColor;
+    }
+
+private:
+    QExplicitlySharedDataPointer<SharedPaletteData> d;
+};
+```
+
+真正可能被多个公开值对象共享的 data 默认不得保存某一个公开实例专属的 `q_ptr`，也通常不使用 `Q_DECLARE_PUBLIC`。detach 策略由持有者负责，不改变 data 字段的命名规则。
 
 ---
 
@@ -704,12 +805,11 @@ CheckOptions:
   readability-identifier-naming.ProtectedMemberPrefix: 'm_'
   readability-identifier-naming.PublicMemberPrefix: ''
   readability-identifier-naming.PublicMemberCase: 'camelBack'
-  readability-identifier-naming.PrivateMemberIgnoredRegexp: '^(q_ptr|d_ptr)$'
-  readability-identifier-naming.ProtectedMemberIgnoredRegexp: '^(q_ptr|d_ptr)$'
-  readability-identifier-naming.PublicMemberIgnoredRegexp: '^(q_ptr|d_ptr)$'
+  readability-identifier-naming.PrivateMemberIgnoredRegexp: '^(d|d_ptr|q_ptr)$'
+  readability-identifier-naming.ProtectedMemberIgnoredRegexp: '^q_ptr$'
 ```
 
-clang-tidy 不能完整判断 public 字段属于合法 PIMPL、数据型 struct，还是普通 public API 类。项目还应使用 AST 或等价门禁识别前两类例外，并拒绝普通 public API 类通过公开状态规避 `m_`。
+clang-tidy 只负责检查词法命名。`PublicMemberPrefix: ''` 不授权任何类型公开状态。项目还必须通过 AST allowlist 或人工评审先确认类型属于获准的 record-like 数据类型或内部 PIMPL/shared-data 实现类型，并拒绝普通行为类公开状态。类型后缀和 `QSharedData` 继承均不得作为自动授权条件。
 
 ---
 
@@ -721,11 +821,12 @@ clang-tidy 不能完整判断 public 字段属于合法 PIMPL、数据型 struct
 - [ ] clang-format --dry-run 无差异
 - [ ] clang-tidy 零警告
 - [ ] 无异常/RTTI/dynamic_cast
-- [ ] 普通类 private/protected 成员使用 m_xxx
-- [ ] 合法 FooPrivate 的 public 状态成员使用无前缀 lowerCamelCase
-- [ ] 数据型 struct 的 public 字段使用无前缀 lowerCamelCase
+- [ ] 类型在命名前已完成直接字段模型授权；`class/struct`、后缀和继承关系未被当作自动授权
+- [ ] 获准的 record-like 与内部 PIMPL/shared-data 类型，其 public 非静态直接字段使用无前缀 lowerCamelCase
+- [ ] private/protected 非静态状态使用 m_xxx，包括获准类型中的非公开状态
 - [ ] 静态成员使用 s_xxx，q_ptr/d_ptr/d/q 保留 Qt 固定名称
 - [ ] 普通类未通过扩大 public 作用域规避 m_ 规则
+- [ ] QSharedDataPointer 写入依赖自动 detach；QExplicitlySharedDataPointer 的写时分离在持有者写入前显式 detach
 - [ ] 单语句 if/for/while 加 braces
 - [ ] 枚举尾逗号
 - [ ] QStringLiteral / u""_qs
@@ -738,7 +839,7 @@ clang-tidy 不能完整判断 public 字段属于合法 PIMPL、数据型 struct
 
 ---
 
-**文档包版本**：v1.0.7
-**最后更新**：2026-07-23
+**文档包版本**：v1.1.0
+**最后更新**：2026-07-25
 
 ---

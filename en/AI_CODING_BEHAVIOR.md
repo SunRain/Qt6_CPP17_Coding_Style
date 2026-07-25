@@ -22,13 +22,21 @@ This project classifies coding standards into three tiers:
 - 🔍 Code reviews should check these items strictly.
 
 **Includes**:
-- Naming conventions (`m_` for private/protected members of ordinary classes; unprefixed camelCase for public state in approved `FooPrivate` classes; `s_` for static members; `k` for constants)
+- Naming conventions (approve the direct-field model before applying access-specific names; ordinary private/protected state uses `m_`, while approved public non-static direct fields have no prefix)
 - Formatting (4-space indentation; braces required even for single-statement blocks)
 - Qt 6 conventions (new-style signal/slot connections, `QStringLiteral`, `Q_OBJECT`)
 - Forbidden items (exceptions, RTTI, `dynamic_cast`, raw `new`/`delete` forbidden by default; raw `new` allowed for `QObject`-derived types but must use parent ownership or `deleteLater()`; manual `delete` for `QObject` is forbidden; C-style casts)
 - `QObject` value semantics: copy/move/by-value containers are forbidden; use pointer/reference semantics and manage lifetime with parent ownership / `deleteLater()` (see Chapter 6 of the coding-style guide in this directory)
 
-Classify the declaration context before naming a member. Private/protected non-static members of ordinary classes use `m_`. Only an unexported `FooPrivate` that explicitly pairs with a public class and is defined in an internal implementation file may use unprefixed camelCase for public state. Public fields of data-only structs also omit `m_`. Keep the fixed Qt names `q_ptr`, `d_ptr`, `d`, and `q`. Widening access in an ordinary class to bypass the member-prefix rule is forbidden.
+Public state and member naming must use this two-stage decision tree:
+
+1. First determine whether the type was explicitly approved for the direct-field model. Only record-like data types and unexported internal PIMPL / Qt shared-data implementation types are eligible.
+2. Never infer approval from `class`/`struct`, `public:`, a `Private` / `Data` suffix, an internal path, or `QSharedData` inheritance. Ordinary managers, controllers, services, workers, and other behavioral classes are not approved by default.
+3. After approval, public non-static direct fields use unprefixed lowerCamelCase; private/protected non-static state still uses `m_`.
+4. Static state continues to use `s_`; keep the fixed Qt names `q_ptr`, `d_ptr`, `d`, and `q`.
+5. For Qt shared-data, also identify the holder: non-const writes through `QSharedDataPointer` detach automatically, while copy-on-write through `QExplicitlySharedDataPointer` requires the holder to call `detach()` explicitly before writing. The detach policy does not change data-field naming.
+
+Widening access in an ordinary class to bypass the member-prefix rule is forbidden. clang-tidy checks lexical naming only; type approval requires an AST allowlist or human review.
 
 **Example**:
 ```cpp
@@ -325,9 +333,9 @@ This directory provides a localized reading set that can be reviewed and distrib
 - If heading changes alter anchors, update all references accordingly to avoid broken links.
 
 #### Version Coupling Rules
-- The release package is maintained as a whole with a unified **Document Package Version**. All artifacts are versioned together.
+- The release package is maintained as a whole with a unified **Document Package Version**. All guideline documents that declare this version are updated together.
 
 ---
 
-**Document Package Version**: v1.0.7
-**Last Updated**: 2026-07-23
+**Document Package Version**: v1.1.0
+**Last Updated**: 2026-07-25

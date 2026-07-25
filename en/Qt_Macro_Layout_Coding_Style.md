@@ -371,7 +371,9 @@ Requirements:
 - The category string is a diagnostics contract and should be stable.
 - Do not define `Q_LOGGING_CATEGORY` in headers to avoid duplicate definitions.
 
-## 14. d-pointer Macro Rules
+## 14. d-pointer Macros and the Qt Shared-Data Boundary
+
+### 14.1 Classic PIMPL
 
 Recommended:
 
@@ -431,9 +433,33 @@ Requirements:
 - Put `Q_DECLARE_PRIVATE` and `d_ptr` in the `private:` section of the Public API class.
 - Put `Q_DECLARE_PUBLIC` at the start of `FooPrivate`, preferably before `public:`.
 - Keep a locally declared `q_ptr` in `private:` when `FooPrivate` does not inherit `QObjectPrivate`; use the inherited `q_ptr` otherwise. `q_ptr` is a non-owning back-pointer, not an owning member.
-- Approved `FooPrivate` public state members use unprefixed camelCase; private/protected members still use `m_`.
+- After `FooPrivate` is approved for the direct-field model, its public non-static state uses unprefixed lowerCamelCase; private/protected non-static state still uses `m_`. A `Private` suffix and the macros do not approve public state on their own.
 - Put `Q_D` / `Q_Q` near the beginning of function bodies.
 - Use a d-pointer only for ABI/API boundaries or complex private state. Do not introduce it for small classes without a need.
+
+### 14.2 Qt Shared-Data Implementation Types
+
+`QSharedDataPointer<T>` / `QExplicitlySharedDataPointer<T>` are shared-data holder mechanisms and do not automatically form a classic `Foo` / `FooPrivate` relationship:
+
+- Do not add `Q_DECLARE_PUBLIC` / `Q_DECLARE_PRIVATE` merely because a data type inherits `QSharedData`.
+- Only an internal shared-data implementation type approved for the direct-field model uses unprefixed lowerCamelCase for public non-static state; private/protected state still uses `m_`.
+- `d` in the holder is a fixed Qt handle name. Data that can genuinely be shared by multiple public value objects does not, by default, store a per-owner `q_ptr`.
+- Non-const writes through `QSharedDataPointer` detach automatically. With `QExplicitlySharedDataPointer`, the holder explicitly calls `detach()` first when copy-on-write is required.
+
+```cpp
+class DocumentValueData : public QSharedData
+{
+public:
+    QString title;
+    QUrl sourceUrl;
+};
+
+class DocumentValue
+{
+private:
+    QSharedDataPointer<DocumentValueData> d;
+};
+```
 
 ## 15. Comment Rules
 
