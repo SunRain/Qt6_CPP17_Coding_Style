@@ -1,168 +1,154 @@
-# AI Coding Behavior Guide
+# AI Coding Behavior and Execution Boundaries
 
-English | 简体中文 | Source
+[English](./AI_CODING_BEHAVIOR.md) | [Simplified Chinese](../cn/AI_CODING_BEHAVIOR.md) |
+[Source](../AI_CODING_BEHAVIOR.md)
 
-> Note: This document is the English translation of the current AI coding-behavior guideline. If there is any discrepancy, the package baseline prevails.
+> This document constrains how an AI/agent applies project authorities. It does not redefine or
+> enlarge C++/Qt/QML rules, build configuration, documentation tooling, version metadata, or task scope.
 
-This document explains how the AI assistant handles **"Mandatory"** vs **"Optional Recommended"** rules in this project's coding standards.
+> **Project-policy prerequisite:** The rule that every `QObject` subclass must contain `Q_OBJECT` is
+> treated here as a project gate only when the project authority or an explicit decision has published
+> it. It is not a universal Qt rule.
 
----
+## 1. Responsibility and authority
 
-## 📋 Specification Classification System
+The AI/agent must determine scope, facts, authority, and verification before editing code or comments.
+The authority relationship is:
 
-This project classifies coding standards into three tiers:
+1. `Qt6_CPP17_Coding_Style.md` is the C++/Qt lifetime, threading, and formatting baseline.
+2. `Qt6_QML_Coding_Style.md` owns QML-specific additions and must explicitly reference the comment
+   guideline instead of duplicating common comment rules.
+3. `Qt_Macro_Layout_Coding_Style.md` owns the placement and order of Qt, QML, and moc macros; it does
+   not decide whether a project requires `Q_OBJECT`.
+4. `Qt6_KDE_API_Parameter_Style.md` owns public API parameter, ownership, view-lifetime, and
+   QML/meta-object boundary rules.
+5. `CPP_Code_Comment_Guidelines.md` owns comment content, coverage, documentation profiles, and
+   documentation verification boundaries.
+6. This document only explains how the AI applies those authorities. Report conflicts and modify an
+   authority only in an explicitly authorized documentation-revision task.
 
-### 1️⃣ **Mandatory**
+## 2. Classification and decision priority
 
-**Definition**: Rules that must be followed strictly; violations will cause code to be rejected.
+### 2.1 Mandatory rules
 
-**AI behavior**:
-- ✅ All generated code must comply with these rules.
-- ⚠️ If the user explicitly asks to violate them, the AI must refuse and provide a compliant alternative.
-- 🔍 Code reviews should check these items strictly.
+Mandatory rules are:
 
-**Includes**:
-- Naming conventions (approve the direct-field model before applying access-specific names; ordinary private/protected state uses `m_`, while approved public non-static direct fields have no prefix)
-- Formatting (4-space indentation; braces required even for single-statement blocks)
-- Qt 6 conventions (new-style signal/slot connections, `QStringLiteral`, `Q_OBJECT`)
-- Forbidden items (exceptions, RTTI, `dynamic_cast`, raw `new`/`delete` forbidden by default; raw `new` allowed for `QObject`-derived types but must use parent ownership or `deleteLater()`; manual `delete` for `QObject` is forbidden; C-style casts)
-- `QObject` value semantics: copy/move/by-value containers are forbidden; use pointer/reference semantics and manage lifetime with parent ownership / `deleteLater()` (see Chapter 6 of the coding-style guide in this directory)
+1. Qt/C++ technical requirements, the target language standard, build constraints, and public API/ABI
+   contracts.
+2. Project policies explicitly published as `must`, `must not`, or an executable gate.
 
-Public state and member naming must use this two-stage decision tree:
+When a requested implementation violates a technical requirement or a published gate, explain the
+conflict and provide a compliant alternative. If the task explicitly authorizes changing the gate,
+revise the authority first and then update the implementation; never silently generate an exception.
 
-1. First determine whether the type was explicitly approved for the direct-field model. Only record-like data types and unexported internal PIMPL / Qt shared-data implementation types are eligible.
-2. Never infer approval from `class`/`struct`, `public:`, a `Private` / `Data` suffix, an internal path, or `QSharedData` inheritance. Ordinary managers, controllers, services, workers, and other behavioral classes are not approved by default.
-3. After approval, public non-static direct fields use unprefixed lowerCamelCase; private/protected non-static state still uses `m_`.
-4. Static state continues to use `s_`; keep the fixed Qt names `q_ptr`, `d_ptr`, `d`, and `q`.
-5. For Qt shared-data, also identify the holder: non-const writes through `QSharedDataPointer` detach automatically, while copy-on-write through `QExplicitlySharedDataPointer` requires the holder to call `detach()` explicitly before writing. The detach policy does not change data-field naming.
+### 2.2 The `Q_OBJECT` project gate
 
-Widening access in an ordinary class to bypass the member-prefix rule is forbidden. clang-tidy checks lexical naming only; type approval requires an AST allowlist or human review.
+When the project authority explicitly says that every `QObject` subclass must contain `Q_OBJECT`:
 
-**Example**:
+1. Treat it as a project-specific gate, not a Qt or KDE universal fact.
+2. "Every" covers public, protected, private, and internal subclasses unless the authority records a
+   formal scope and exception.
+3. Add the macro to new or modified subclasses and verify moc/AUTOMOC, compilation, linking, and any
+   relevant runtime meta-object behavior.
+4. A tree-wide governance task audits all in-scope subclasses. A local task does not expand to a whole
+   repository without authorization, but it reports missing macros in its scope.
+5. Template, nested, header-only, or other moc/build-limited types cannot be silently skipped. Record a
+   technical exception with reason, owner, and removal condition, or change the design so the gate is
+   executable.
+6. Macro placement and order remain governed by `Qt_Macro_Layout_Coding_Style.md`.
+
+If the project has not published this gate, apply the normal Qt split: a subclass that uses its own
+signals, slots callable through the meta-object, properties, enum metadata, QML/plugin registration,
+or another self meta-object service requires `Q_OBJECT`; other subclasses are covered by a strong Qt
+upstream recommendation, not an automatic whole-tree edit.
+
+### 2.3 `QObject` lifetime
+
+Do not describe the policy as "all QObject objects must never be deleted directly":
+
+- Direct cross-thread deletion and synchronous deletion while the object processes a received event
+  must be prevented.
+- Prefer parent ownership when a dynamic child has the same lifetime as its owner.
+- Direct destruction or controlled RAII can be valid for a same-thread, local, non-escaping, unparented
+  object with no event being processed and no in-flight use.
+- Use `deleteLater()` for event-driven, cross-thread, queued, or explicitly asynchronous worker
+  destruction, and only when the object's thread can process deferred-delete events.
+- A queued connection or asynchronous callback alone does not prove that `deleteLater()` is required.
+- If owner, thread, or event-loop conditions cannot be proven in the task scope, preserve the existing
+  lifetime and report the uncertainty rather than rewriting it in bulk.
+
+`QObject` subclasses must not be copied, moved, or stored by value in containers that require those
+semantics.
+
+### 2.4 Optional recommendations
+
+Qt/KDE upstream recommendations and modern C++ techniques guide new code but are not violations unless
+the project explicitly promotes them to a gate:
+
+- Respect the target standard, public ABI/API, QML/meta-object boundaries, and existing contracts.
+- Preserve existing interfaces in maintenance work; do not refactor merely to adopt a recommendation.
+- `std::span` is a non-owning contiguous-memory view in C++20, not a container. Check the borrowed
+  lifetime.
+- `std::variant` is a tagged union, not a container.
+- C++20 makes many `std::vector` operations usable during constant evaluation, but a non-empty vector
+  object is generally not a persistent constant expression. Prefer `std::array` for fixed data.
+- Explain `constexpr`, structured bindings, concepts, ranges, coroutines, modules, and `<=>` only when
+  they carry non-obvious semantics.
+
+### 2.5 Project-specific conventions
+
+Existing code is evidence of local style, not authority. Code frequency cannot create a new policy.
+New conventions enter an authority only through an explicit project decision or an authorized document
+revision. When authorities conflict, follow the highest current authority and report the conflict.
+
+### 2.6 Conflict order
+
+Within the task scope, resolve conflicts in this order:
+
+1. Explicit user goal, file scope, and verification scope.
+2. Qt/C++ technical requirements, target standard, and public API/ABI contracts.
+3. Published project gates, including a published all-`QObject` `Q_OBJECT` gate.
+4. The applicable topic guideline and documentation profile.
+5. Existing local style.
+6. Optional Qt/KDE recommendations.
+
+## 3. AI/agent execution flow
+
+1. **Scope first:** identify the requested files, code paths, and verification boundary.
+2. **Technical boundary:** read the language standard, Qt version, build configuration, public API/ABI,
+   and project authorities.
+3. **`Q_OBJECT` decision:** apply the project gate when enabled; otherwise apply only Qt's technical
+   conditions and upstream recommendations.
+4. **moc/build check:** do not stop at adding macro text; verify generated code, compilation, and linking.
+5. **Lifetime check:** inspect parent, owner, thread affinity, event processing, in-flight use, and
+   event-loop availability before choosing parent ownership, RAII, direct destruction, or `deleteLater()`.
+6. **Profile check:** read `.qdocconf`, `Doxyfile`, KApiDox, Doxyqml, ECM, and project entry points.
+   With no confirmed configuration, use ordinary source comments and do not add a toolchain.
+7. **Comment increment:** add only applicable non-obvious information for new or changed
+   public/protected/QML-facing contracts and internal constraints.
+8. **No invented facts:** versions, dates, issue IDs, owners, replacement APIs, defaults, thread models,
+   and technical exceptions require project evidence.
+9. **Verify and stop:** run only scope-matched checks. Report an unconfigured documentation toolchain;
+   never claim zero-warning documentation without evidence.
+
+QCH must use the selected QDoc or Doxygen base engine. Use ECMAddQch only when the project already
+depends on ECM; do not switch engines or introduce full KApiDox solely to obtain `.qch` output.
+
+## 4. Practical examples
+
+### 4.1 New code may use a modern return type
+
+When C++17 is enabled and an empty value really means "no valid color":
+
 ```cpp
-// ❌ Wrong: violates mandatory rule (no braces for a single statement)
-if (condition)
-    doSomething();
-
-// ✅ Correct: compliant
-if (condition) {
-    doSomething();
-}
-```
-
----
-
-### 2️⃣ **Optional Recommended**
-
-**Definition**: Modern best practices that are encouraged, but not required.
-
-**AI behavior**:
-- ✅ **New code / new features**: use the recommended style by default.
-- 🔄 **Maintaining old code**: keep the existing style; do not force refactors.
-- 🤝 **User preference**: respect explicit choices; avoid repeated reminders.
-- 💡 **First use**: you may briefly explain the benefit (once, and only once).
-
-**Includes** (see Chapter 5 of the coding-style guide in this directory):
-- `std::optional<T>` vs `bool func(T *out)`
-- Structured bindings vs `QPair`
-- `constexpr` vs `const`/`#define`
-- `[[nodiscard]]`, `[[maybe_unused]]`
-- STL containers (`std::span`, `std::variant`, etc.) vs Qt containers
-
-**Example**:
-```cpp
-// ✅ Recommended: modern C++17 style
-std::optional<QColor> tryGetColor() {
-    if (isValid) {
-        return QColor(255, 0, 0);
-    }
-    return std::nullopt;
-}
-
-// ✅ Also acceptable: traditional style
-bool getColor(QColor *outColor) {
-    if (isValid) {
-        *outColor = QColor(255, 0, 0);
-        return true;
-    }
-    return false;
-}
-```
-
----
-
-### 3️⃣ **Project-Specific**
-
-**Definition**: Conventions formed by the project's history and team habits.
-
-**AI behavior**:
-- 🔍 **Analyze existing code**: learn the real style used in the codebase.
-- 📊 **Prefer the dominant style**: if 90% of the codebase uses a pattern, follow it.
-- 🆕 **New modules**: you may introduce modern patterns in a controlled way.
-- 📝 **Documentation update**: add new conventions to the relevant documents in the release package (prefer the coding-style and comment-guideline documents in this directory), and update this document's decision notes (if applicable).
-
----
-
-## 🤖 AI Decision Tree
-
-When generating code, the AI assistant follows this decision flow:
-
-```
-Start generating code
-    ↓
-Does it violate a mandatory rule?
-    ├─ Yes → ❌ Refuse and provide a compliant alternative
-    └─ No  → Continue
-           ↓
-Does it involve lifetime management?
-           ├─ No → Continue
-           └─ Yes → First decide whether it is QObject-derived
-                  ├─ Yes → Forbid copy/move/by-value containers; prefer new T(parent);
-                  |        use deleteLater() when needed; forbid manual delete
-                  └─ No  → Use RAII/smart pointers; forbid raw new/delete
-                         ↓
-Is it new code or maintenance?
-    ├─ New code → Prefer "Optional Recommended" modern style
-    └─ Old code → Keep the existing style
-          ↓
-Did the user explicitly request a specific style?
-    ├─ Yes → Respect the user's choice (as long as it does not violate mandatory rules)
-    └─ No  → Use the recommended style
-         ↓
-Done
-```
-
----
-
-## 📊 Practical Examples
-
-### Scenario 1: user asks for a new helper function
-
-**User request**:
-> "Write a function that tries to parse a color from a config file; return empty if it fails."
-
-**AI decision**:
-1. ✅ New code → prefer modern style
-2. ✅ Use `std::optional<QColor>` as the return type
-3. ✅ Use `camelCase` for function names; `k` prefix for constants
-4. ✅ Use `QStringLiteral` for string literals
-
-**Generated code**:
-```cpp
-#include <QColor>
-#include <QString>
-#include <optional>
-
-std::optional<QColor> parseColorFromConfig(const QString &key) {
-    constexpr int kDefaultAlpha = 255;
-
-    // Try to read from config
-    QString colorStr = readConfigValue(key);
-    if (colorStr.isEmpty()) {
+std::optional<QColor> parseColorFromConfig(const QString &key)
+{
+    const QString colorString = readConfigValue(key);
+    if (colorString.isEmpty()) {
         return std::nullopt;
     }
 
-    QColor color(colorStr);
+    const QColor color(colorString);
     if (!color.isValid()) {
         return std::nullopt;
     }
@@ -171,42 +157,21 @@ std::optional<QColor> parseColorFromConfig(const QString &key) {
 }
 ```
 
-**AI note**:
-> I used `std::optional<QColor>` as the return type, which is a recommended C++17 style. If you prefer the traditional `bool parseColor(const QString&, QColor*)` style, I can adjust it.
+Do not add comments that merely restate the code.
 
----
+### 4.2 Preserve a legacy API
 
-### Scenario 2: user asks to modify an existing function
+For an existing `bool` plus output-parameter contract, do not change it to `std::optional` merely
+because the latter is recommended:
 
-**Existing code**:
 ```cpp
-bool MainWindow::loadConfig(QString *errorMsg) {
-    if (!m_configFile.exists()) {
-        *errorMsg = QString("Config file not found");
-        return false;
-    }
-    // ...
-}
-```
-
-**User request**:
-> "Add a new config validation step."
-
-**AI decision**:
-1. ✅ Maintenance → keep the existing style
-2. ✅ Keep the `bool + out-parameter` pattern (do not force `std::optional`)
-3. ✅ Use `QStringLiteral` for string literals (mandatory)
-4. ✅ `MainWindow` is an ordinary class, so its private members keep the `m_` prefix
-
-**Generated code**:
-```cpp
-bool MainWindow::loadConfig(QString *errorMsg) {
+bool MainWindow::loadConfig(QString *errorMsg)
+{
     if (!m_configFile.exists()) {
         *errorMsg = QStringLiteral("Config file not found");
         return false;
     }
 
-    // New: config validation step
     if (!validateConfigSchema()) {
         *errorMsg = QStringLiteral("Config schema validation failed");
         return false;
@@ -216,126 +181,90 @@ bool MainWindow::loadConfig(QString *errorMsg) {
 }
 ```
 
-**AI behavior**:
-- ✅ Preserves the original `bool + out-parameter` style
-- ✅ Fixes the string literal style (from `QString("...")` to `QStringLiteral`)
-- ✅ Does not proactively suggest refactoring to `std::optional`
+### 4.3 A published `Q_OBJECT` gate
 
----
+When the gate is enabled, even an internal subclass with no signal or property receives the macro:
 
-### Scenario 3: user explicitly asks for a traditional style
-
-**User request**:
-> "Use the traditional QPair style to return an iterator and an insertion status."
-
-**AI decision**:
-1. ✅ User explicitly asked for `QPair` → respect the choice
-2. ✅ Do not push structured bindings
-3. ✅ Still follow mandatory rules (naming, formatting, etc.)
-
-**Generated code**:
 ```cpp
-QPair<QMap<QString, int>::iterator, bool> insertValue(
-    QMap<QString, int> &map,
-    const QString &key,
-    int value)
+class InternalWorker : public QObject
 {
-    auto it = map.find(key);
-    if (it != map.end()) {
-        return qMakePair(it, false);
-    }
+    Q_OBJECT
 
-    it = map.insert(key, value);
-    return qMakePair(it, true);
+public:
+    explicit InternalWorker(QObject *parent = nullptr);
+};
+```
+
+Verify that the type is in scope and that moc/AUTOMOC, compilation, and linking support it. Reference
+a formal project exception for types that cannot be processed; do not silently omit the macro.
+
+### 4.4 A real asynchronous lifetime
+
+Dynamic children use parent ownership. A worker moved to another thread uses `deleteLater()` from its
+finished signal, provided that its thread still processes deferred-delete events:
+
+```cpp
+QWidget *createWidget(QWidget *parent)
+{
+    auto *widget = new QWidget(parent);
+    widget->setObjectName(QStringLiteral("editorPane"));
+    return widget;
+}
+
+void bindWorkerLifetime(Worker *worker)
+{
+    // The worker thread must still process deferred-delete events.
+    QObject::connect(worker, &Worker::finished, worker, &QObject::deleteLater);
 }
 ```
 
----
+## 5. What the AI should and should not do
 
-### Scenario 4: user asks to violate a mandatory rule
+### Should
 
-**User request**:
-> "Create a QWidget with raw new, and I'll delete it when appropriate."
+1. Lock scope first, then apply technical requirements, project gates, and topic guidelines.
+2. When a gate is enabled, add `Q_OBJECT` to every applicable subclass in the task scope and verify moc/build.
+3. Distinguish Qt technical requirements, upstream recommendations, and project policy.
+4. Protect public API/ABI, QML/meta-object contracts, and verified lifetimes.
+5. Use only real versions, tracking data, thread models, and documentation profiles.
+6. Close out with validation that was actually executed.
 
-**AI decision**:
-1. ❌ Violates a mandatory rule (manual `delete` for `QObject`-derived types is forbidden)
-2. ✅ Raw `new` is allowed for `QObject`-derived types, but destruction must be via parent ownership or `deleteLater()`
+### Should not
 
-**AI response**:
-> ⚠️ **I cannot generate code exactly as requested**
->
-> According to the project coding rules: `QObject`-derived objects may be created with raw `new`, but **manual `delete` is forbidden**. Use the Qt parent-child tree or `deleteLater()` for event-loop-safe destruction.
->
-> **Recommended alternatives**:
->
-> **Option 1: use parent ownership (preferred)**
-> ```cpp
-> void createWidget(QWidget *parent) {
->     auto *widget = new QWidget(parent);
->     widget->setObjectName(QStringLiteral("myWidget"));
-> }
-> ```
->
-> **Option 2: no parent and involves async/event loop → use `deleteLater()`**
-> ```cpp
-> void createWidget() {
->     auto *widget = new QWidget();
->     widget->setObjectName(QStringLiteral("myWidget"));
-> 
->     // Destroyed by event loop to avoid manual delete
->     widget->deleteLater();
-> }
-> ```
->
-> If you truly need immediate destruction, explain why event-loop destruction is not acceptable. I can help redesign the lifetime safely (e.g., clarify ownership, use RAII for non-QObject resources, etc.).
+1. Derive policy from code-frequency statistics.
+2. Promote a recommendation to a gate without authorization or add `Q_OBJECT` to the whole tree when
+   the gate is not enabled.
+3. Exclude private/internal subclasses from an enabled all-subclass gate without a formal exception.
+4. Treat every direct destruction as invalid or mechanically change every asynchronous path to
+   `deleteLater()`.
+5. Invent versions, dates, issue IDs, owners, replacement APIs, or technical exceptions.
+6. Automatically modify authorities, introduce a generator, synchronize distributions, or expand a
+   refactoring scope.
 
----
+## 6. Related documents, verification, and version coupling
 
-## 🎯 Key Principles Summary
+Related authorities:
 
-### What the AI should do ✅
+- [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md)
+- [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md)
+- [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md)
+- [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md)
+- [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md)
+- [`Qt6_CPP17_CLANG-FORMAT`](./Qt6_CPP17_CLANG-FORMAT)
 
-1. **Strictly enforce mandatory rules**: zero tolerance for violations
-2. **Use modern patterns for new code**: default to "Optional Recommended"
-3. **Preserve style when maintaining old code**: do not force refactors
-4. **Respect explicit user choices**: the user may have valid trade-offs
-5. **Educate briefly**: when using a new feature the first time (no verbosity)
+Before delivery, check the task-appropriate subset of:
 
-### What the AI should not do ❌
-
-1. **Do not enforce optional recommendations**: do not repeatedly push `std::optional`
-2. **Do not mix styles**: avoid mixing traditional and modern styles in the same file
-3. **Do not assume knowledge gaps**: explain succinctly, no lecturing
-4. **Do not refactor proactively**: unless it is required to satisfy mandatory rules
-5. **Do not ignore project history**: learn and follow the codebase's real conventions
+- The in-scope `QObject` subclasses contain `Q_OBJECT` when the published gate is enabled, or cite a
+  formal exception.
+- moc/AUTOMOC, compilation, linking, and relevant runtime meta-object checks pass.
+- Comments and examples follow the 100-column soft baseline, `ReflowComments: false`, and the project's
+  function-brace style.
+- Documentation checks run only when a matching configuration and task requirement exist.
+- Unconfigured generators are reported as unconfigured; no zero-warning claim is made.
+- Root, `cn/`, and `en/` documents, links, versions, and dates are coupled only during an explicit
+  documentation synchronization or release task.
 
 ---
 
-## 📚 Related Documents
-
-### Release Package Entry (Single Entry Point)
-
-This directory provides a localized reading set that can be reviewed and distributed on its own.
-
-- [`Coding Style Guide`](./Qt6_CPP17_Coding_Style.md) (optional recommendations in Chapter 5)
-- bundled clang-format baseline notes for formatting consistency
-- [`Comment Guidelines`](./CPP_Code_Comment_Guidelines.md)
-- AI behavior and decision tree (this document)
-
-#### Suggested Reading Order
-1. Formatting conventions and bundled baseline notes
-2. [`Coding Style Guide`](./Qt6_CPP17_Coding_Style.md)
-3. [`Comment Guidelines`](./CPP_Code_Comment_Guidelines.md)
-4. AI behavior notes (this document)
-
-#### Link Rules
-- Use relative links only, and only to files/anchors within the release package. Do not link to non-release paths or tool-specific entry names.
-- If heading changes alter anchors, update all references accordingly to avoid broken links.
-
-#### Version Coupling Rules
-- The release package is maintained as a whole with a unified **Document Package Version**. All guideline documents that declare this version are updated together.
-
----
-
-**Document Package Version**: v1.1.0
-**Last Updated**: 2026-07-25
+**Document package version**: v1.1.0
+**Last updated**: 2026-07-25

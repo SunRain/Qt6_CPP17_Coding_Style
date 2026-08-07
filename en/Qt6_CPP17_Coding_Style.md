@@ -26,6 +26,11 @@ Two topic documents expand this umbrella guideline and must not duplicate full r
 
 When a topic-level detail conflicts with this document's summary, the corresponding topic document wins. This document keeps summaries and cross-references only, so the three documents do not drift.
 
+This umbrella is also the authority for the project's `Q_OBJECT` presence gate: every `QObject`-
+derived class in this project must contain `Q_OBJECT`. The project has promoted a strong Qt upstream
+recommendation to an executable gate; it must not be described as a universal Qt technical requirement.
+Macro placement and order remain governed by `Qt_Macro_Layout_Coding_Style.md`.
+
 ## 0 Overview
 - Compilers: GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
 - Standard: C++17 (`set(CMAKE_CXX_STANDARD 17)`)
@@ -402,7 +407,7 @@ Foo::Foo(int a, int b)
 ## 6 Qt 6-Specific Conventions
 | Rule | Recommendation | Good | Bad |
 |---|---|---|---|
-| `Q_OBJECT` | Required for every `QObject`-derived type | `Q_OBJECT` present | Missing it breaks `qobject_cast` |
+| `Q_OBJECT` | Project gate: every `QObject`-derived class contains it | `Q_OBJECT` present | Omit the macro or silently waive it |
 | Signal/slot connections | Use new-style `connect` | `connect(sender, &Sender::valueChanged, receiver, &Receiver::update);` | `SIGNAL/SLOT` strings |
 | String literals | Use `QStringLiteral("...")` or `u"..."_qs` | `QStringLiteral("hello")` | `QString("hello")` |
 | Heavy work | Prefer `QtConcurrent::run(&Worker::doWork)` | `QtConcurrent::run(&Worker::doWork)` | manual `new Thread` |
@@ -639,12 +644,29 @@ Q_DECLARE_METATYPE(Payload)
 // qRegisterMetaType<Payload>("Payload");
 ```
 
-### 6.3 Meta-Object System and Properties (Q_OBJECT / Q_PROPERTY / Metatypes) (Mandatory + Recommended)
+### 6.3 Meta-Object System and Properties (Q_OBJECT / Q_PROPERTY / Metatypes) (Project Gate + Mandatory + Recommended)
 
-#### 6.3.1 Macros and Type Choice (Mandatory)
+#### 6.3.1 `Q_OBJECT` project gate and macro choice
 
-- **Required**: every `QObject`-derived class must contain `Q_OBJECT`.
-- **Recommended**: for value types that need reflection (enums/properties) but do not need QObject lifetime/signals, use `Q_GADGET`. For enums exposed from a namespace, use `Q_NAMESPACE` (with `Q_ENUM_NS` / `Q_FLAG_NS`).
+The Qt technical minimum is that a `QObject` subclass using its own signals, properties, invokable
+meta-object methods, enum metadata, QML/plugin metadata, or another meta-object service contains
+`Q_OBJECT`. Qt also strongly recommends the macro for other `QObject` subclasses. This project promotes
+the latter recommendation to a project gate:
+
+- **Required:** every `QObject`-derived class in this project contains `Q_OBJECT`, including public,
+  protected, private/internal, nested, and helper types. Do not narrow the rule because a class currently
+  has no signal or property.
+- **Required:** when adding or modifying such a class, verify qmake or CMake, moc/AUTOMOC, compilation,
+  and linking can process the generated meta-object code.
+- **Technical exception:** template, header-only, or other moc/build-limited types cannot be silently
+  skipped. Record the technical reason, owner, and removal condition, or change the design so the gate
+  can be enforced.
+- **Layout boundary:** macro position, order, and class-body layout follow
+  `Qt_Macro_Layout_Coding_Style.md`; this section decides only whether the macro is required.
+
+This "required" status is a project policy and cannot be inferred as a general rule for other Qt
+libraries. For value types that need reflection but not QObject lifetime or signals, use `Q_GADGET`;
+for namespace enums use `Q_NAMESPACE` with `Q_ENUM_NS` / `Q_FLAG_NS`.
 
 #### 6.3.2 Q_PROPERTY (Mandatory)
 
@@ -830,6 +852,8 @@ clang-tidy checks lexical naming only. `PublicMemberPrefix: ''` does not authori
 - [ ] Braces for single-statement `if/for/while`
 - [ ] Trailing comma in enums
 - [ ] `QStringLiteral` / `u""_qs`
+- [ ] Project `Q_OBJECT` gate: every in-scope `QObject`-derived class contains `Q_OBJECT`
+- [ ] Formal `Q_OBJECT` exceptions are recorded; moc/AUTOMOC, compilation, and linking pass
 - [ ] `QObject`: no copy/move/by-value containers; prefer `Q_DISABLE_COPY_MOVE`; use parent-child/`deleteLater()`, no manual `delete`; non-`QObject` uses `std::unique_ptr`/RAII
 - [ ] Use QtConcurrent for long-running threaded tasks
 - [ ] No exceptions: do not add `throw`/`try`/`catch`; "may fail" APIs report failure explicitly and are `[[nodiscard]]`

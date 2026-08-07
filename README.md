@@ -53,6 +53,7 @@ English docs: [en/](en/)
 - clang-format 配置：[`Qt6_CPP17_CLANG-FORMAT`](Qt6_CPP17_CLANG-FORMAT)
 - 注释规范（中文）：[`CPP_Code_Comment_Guidelines.md`](CPP_Code_Comment_Guidelines.md)
 - AI 协作约定（中文）：[`AI_CODING_BEHAVIOR.md`](AI_CODING_BEHAVIOR.md)
+- C++ 注释规范与 AI 编码行为完整审查结论（中文）：[`doc/CPP_Comment_and_AI_Behavior_Review_Conclusion.md`](doc/CPP_Comment_and_AI_Behavior_Review_Conclusion.md)
 - Qt6 / KDE Public API 参数规范（中文）：[`Qt6_KDE_API_Parameter_Style.md`](Qt6_KDE_API_Parameter_Style.md)
 - Qt6 / KDE API System Prompt（中文）：[`Qt6_KDE_API_Parameter_Style.system-prompt.md`](Qt6_KDE_API_Parameter_Style.system-prompt.md)
 - English：

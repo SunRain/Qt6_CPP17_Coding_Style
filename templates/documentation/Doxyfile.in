@@ -1,0 +1,39 @@
+# TEMPLATE ONLY - NOT AN ENABLED PROJECT CONFIGURATION.
+# Replace every @...@ token before use.
+
+PROJECT_NAME           = @PROJECT_NAME@
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = @PROJECT_DESCRIPTION@
+OUTPUT_DIRECTORY       = @OUTPUT_DIR@
+
+INPUT                  = @PUBLIC_INCLUDE_DIR@ @CPP_SOURCE_DIR@
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.hpp *.cpp
+EXCLUDE                = @PRIVATE_DIRS@ @BUILD_DIR@ @TEST_DIR@
+EXCLUDE_PATTERNS       = @EXCLUDE_PATTERNS@
+
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+INLINE_SOURCES         = NO
+SOURCE_BROWSER         = NO
+
+GENERATE_HTML          = YES
+GENERATE_XML           = @GENERATE_XML@
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+
+WARN_IF_UNDOCUMENTED   = @WARN_IF_UNDOCUMENTED@
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = @WARN_NO_PARAMDOC@
+QUIET                  = NO
+
+# QML extension, only when the Doxyqml profile is explicitly selected.
+# INPUT += @QML_SOURCE_DIR@
+# FILTER_PATTERNS = *.qml=@DOXYQML_FILTER@
+
+# QCH output, only when selected and supported by the project integration.
+# GENERATE_QHP = YES
+# QHP_NAMESPACE = @QHP_NAMESPACE@
+# QHP_VIRTUAL_FOLDER = @QHP_VIRTUAL_FOLDER@
+# QHG_LOCATION = @QHG_LOCATION@

@@ -1,167 +1,163 @@
-# AI 编码行为说明文档（中文）
+# AI 编码行为与执行边界（中文）
 
-English | 简体中文 | 原文
+[English](../en/AI_CODING_BEHAVIOR.md) | 简体中文 |
+[原文](../AI_CODING_BEHAVIOR.md)
 
-> 说明：本文档为当前 AI 编码行为规范的中文整理版（用于阅读与分发）。若与规范基线存在差异，以规范基线为准。
+> 说明：本文档为当前 AI 编码行为规范的中文整理版，用于阅读、分发和约束 AI/agent
+> 的代码生成与修改。若与规范基线存在差异，以规范基线为准。
 
-> 本文档解释 AI 助手如何处理项目编码规范中的"强制规范"与"可选推荐"
+> 本文档只解释 AI/agent 如何应用现有项目权威，不重新定义或扩大底层规则。
+
+> **项目政策前置条件**：本文把“所有 `QObject` 子类必须添加 `Q_OBJECT`”作为项目
+> 强制门禁使用。该门禁必须已经由项目权威或明确决策发布；它不是 Qt 普遍规则。
 
 ---
 
-## 📋 规范分类体系
+## 1. 文档职责与权威关系
 
-本项目将编码规范分为三个层级：
+本文档的职责是约束 AI/agent 的决策顺序、范围、事实来源和验证行为。它不授权 AI/agent
+自行修改规范、构建配置、文档工具链、版本信息或任务范围外的代码。
 
-### 1️⃣ **强制规范**（Mandatory）
+项目权威关系如下：
 
-**定义**：必须严格遵守的规则，违反将导致代码不被接受。
+1. [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
+   基础格式总纲。
+2. [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md) 只维护 QML 专题增量，并引用
+   注释规范，不重复维护通用规则。
+3. [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
+   moc 宏的位置、顺序与类体布局，不决定项目是否建立 `Q_OBJECT` 门禁。
+4. [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md) 负责 Public API
+   参数、Borrow/Owning、view 生命周期和 QML/meta-object 边界类型。
+5. [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md) 负责注释内容、
+   覆盖范围、生成器 profile 和文档验证规则。
+6. 本文只说明 AI 如何应用上述权威；权威之间发生事实冲突时，应报告冲突，并在获得
+   文档修订授权后修正权威源。
 
-**AI 行为**：
-- ✅ 生成的所有代码都必须符合这些规范
-- ⚠️ 如果用户明确要求违反，AI 必须拒绝并提供符合规范的替代方案
-- 🔍 代码审查时会严格检查这些项目
+## 2. 规范分类与执行优先级
 
-**包含内容**：
-- 命名规范（先批准直接字段模型，再按访问级别命名；普通 private/protected 状态使用 `m_`，获准的 public 非静态直接字段不使用前缀）
-- 代码格式（4 空格缩进、单语句必须加括号）
-- Qt 6 专属约定（新式信号槽、`QStringLiteral`、`Q_OBJECT` 宏）
-- 禁止项（异常、RTTI、`dynamic_cast`、默认禁止裸 `new`/`delete`（`QObject` 派生允许裸 `new`，但必须父子树或 `deleteLater()`；禁止手动 `delete` `QObject`）、C 风格转换）
-- `QObject` 派生语义：禁止 copy/move/按值容器；仅使用指针/引用语义，并用 parent ownership / `deleteLater()` 管理生命周期（详见当前目录中的代码规范文档第 6 章）
+### 2.1 强制规范
 
-public 状态与成员命名必须使用以下两阶段决策树：
+强制规范只包括以下两类：
 
-1. 先判断类型是否经明确批准采用直接字段模型。只允许 record-like 数据类型，以及未导出的内部 PIMPL / Qt shared-data 实现类型。
-2. 不得依据 `class/struct`、`public:`、`Private` / `Data` 后缀、内部路径或 `QSharedData` 继承自动批准。普通 manager、controller、service、worker 等行为类默认不批准。
-3. 批准后，public 非静态直接字段使用无前缀小驼峰；private/protected 非静态状态仍使用 `m_`。
-4. 静态状态继续使用 `s_`；`q_ptr`、`d_ptr`、`d`、`q` 保留 Qt 固定名称。
-5. 使用 Qt shared-data 时，额外判断持有者类型：`QSharedDataPointer` 的非 const 写入自动 detach；`QExplicitlySharedDataPointer` 需要持有者在写时分离前显式 `detach()`。detach 策略不改变 data 字段命名。
+1. Qt/C++ 技术硬要求、目标语言标准、构建约束以及 public API/ABI 合同。
+2. 项目权威明确标记为“必须”“禁止”或可执行门禁的项目政策。
 
-禁止通过扩大 public 作用域规避普通成员命名规则。clang-tidy 只检查词法命名，类型授权必须由 AST allowlist 或人工评审完成。
+用户要求生成违反技术硬要求或已发布项目门禁的代码时，AI/agent 应说明冲突并提供
+符合约束的替代实现。只有任务明确授权修改该门禁时，才先修订权威，再同步代码；
+不得保留原规则并暗中生成例外。
 
-**示例**：
+### 2.2 `Q_OBJECT` 项目强制门禁
+
+若项目权威明确规定“所有 `QObject` 子类必须添加 `Q_OBJECT`”，AI/agent 必须按以下
+规则执行：
+
+1. 该要求是**项目特定的强制门禁**，不能写成 Qt 或 KDE 的普遍技术事实。
+2. “所有”默认覆盖项目内 public、protected、private 和 internal 的 `QObject` 子类，
+   不得自行缩窄为导出类、QML-facing 类或具体类。
+3. 新增或修改 `QObject` 子类时，必须同步添加 `Q_OBJECT`，并确认 moc、AUTOMOC、qmake/
+   CMake 和最终链接链路都能处理该类型。
+4. 如果任务本身是落实门禁的全树治理任务，必须审计任务范围内的全部 `QObject` 子类。
+   普通局部任务不得无授权扩展为全仓库重构，但应报告范围内已存在的缺失项。
+5. 模板类、嵌套类、header-only 类型或其他 moc/build 无法处理的类型不得静默跳过。
+   项目必须记录正式技术例外、理由、责任人和移除条件，或先调整类型/构建设计使门禁
+   可执行。没有正式例外时，AI/agent 不得自行豁免。
+6. `Q_OBJECT` 的位置、宏顺序和类体布局仍由 `Qt_Macro_Layout_Coding_Style.md` 决定；
+   本节只决定“是否必须存在”。
+
+如果项目尚未正式发布该门禁，则恢复普通分层：类型自身使用 signal、slot、property、
+enum、QML/插件元数据或其他自身元对象能力时，`Q_OBJECT` 属于 Qt 技术硬要求；其他
+普通 `QObject` 子类添加 `Q_OBJECT` 属于 Qt 上游强烈建议，不自动触发全树修改。
+
+### 2.3 `QObject` 生命周期
+
+`QObject` 不得按值复制或放入要求复制语义的容器。销毁策略不能写成“所有对象禁止直接
+`delete`”：
+
+- 跨线程直接删除，以及对象正在处理其所接收事件时同步删除，必须阻止。
+- 动态子对象与 owner 同生命周期时，默认优先使用 parent ownership。
+- 同线程、函数局部、不逃逸、无 parent、未处理事件且无在途使用时，直接析构或受控
+  RAII 可以成立。
+- 只有事件处理、跨线程销毁请求或明确的事件驱动 worker 生命周期需要延迟销毁时，才
+  使用 `deleteLater()`。
+- `deleteLater()` 依赖对象所属线程能够处理 deferred delete；queued connection 或异步
+  回调本身不自动证明必须使用它。
+- 无法在当前代码范围证明 owner、线程和事件循环条件时，保留既有生命周期并报告，
+  不主动批量改写。
+
+### 2.4 可选推荐（含 Qt/KDE 上游强烈建议）
+
+上游强烈建议和现代 C++ 写法默认用于新代码，但除非项目权威明确升级为门禁，否则不
+视为违规：
+
+- 新代码只有在目标标准、public ABI/API、QML/meta-object 边界和既有合同允许时采用。
+- 维护代码优先保持已有接口和局部风格，不因推荐项扩大重构范围。
+- 用户明确选择合法写法时直接执行，不重复劝告。
+- `std::span` 是 C++20 的非 owning 连续内存 view，不是容器；必须确认借用生命周期。
+- `std::variant` 是带标签联合类型，不是容器。
+- C++20 使 `std::vector` 的许多操作可参与常量求值，但非空 vector 对象通常不能作为
+  一般的持久常量表达式；固定编译期数据通常优先使用 `std::array`。
+- `constexpr`、结构化绑定、concepts、ranges、coroutines、modules 和 `<=>` 只在承载
+  非显然语义时解释，不因使用新语法机械添加说明。
+
+### 2.5 项目特定约定
+
+- 既有代码只能作为识别局部风格的证据；代码频率不能覆盖现行规范，也不能自动形成
+  新项目政策。不得依据统计比例建立规则。
+- 新约定只有在项目明确决策或用户授权的文档修订任务中，才能写入权威文档。
+- 实现任务发现总纲和专题冲突时，遵循当前最高权威并报告冲突，不得自行改写权威。
+
+### 2.6 决策优先级
+
+在任务范围内，按以下顺序处理冲突：
+
+1. 用户明确的目标、文件范围和验证范围；
+2. Qt/C++ 技术硬要求、目标标准和 public API/ABI 合同；
+3. 已发布的项目强制门禁，包括“所有 `QObject` 子类必须 `Q_OBJECT`”；
+4. 对应专题规范和文档工具链 profile；
+5. 现有局部风格；
+6. Qt/KDE 上游强烈建议和可选推荐。
+
+用户选择不能覆盖技术硬要求或已发布门禁；用户明确授权修改门禁时，应先修改权威并
+同步执行，不能在实现阶段隐式豁免。
+
+## 3. AI/agent 执行流程
+
+1. **范围先行**：确认用户目标、允许修改的文件、代码路径和验证范围。
+2. **确认技术边界**：读取 C++ 标准、Qt 版本、构建配置、public API/ABI 和项目权威。
+3. **判断 `Q_OBJECT`**：门禁启用时，任务范围内所有适用的 `QObject` 子类都必须添加
+   宏；门禁未启用时，只按元对象技术需求或上游建议处理。
+4. **确认 moc/build**：添加宏不能只停留在源码文本；必须确认 moc/AUTOMOC、生成源文件、
+   编译和链接链路都覆盖该类型。
+5. **确认生命周期**：先确认 parent、owner、线程亲和性、事件状态、在途使用和事件循环，
+   再选择 parent ownership、RAII、直接析构或 `deleteLater()`。
+6. **识别文档 profile**：读取 `.qdocconf`、`Doxyfile`、KApiDox、Doxyqml、ECM 或项目
+   入口；没有可确认配置时按无生成器处理，不新增工具链。
+7. **限制注释增量**：遵循 `CPP_Code_Comment_Guidelines.md`，只为新增或语义变化的
+   public/protected/QML-facing 契约和非显然内部约束补注释。
+8. **事实不可臆造**：版本、日期、bug ID、owner、替代 API、默认值、线程模型和技术例外
+   必须有项目事实来源；`@since`、`@deprecated` 和 TODO 元数据同样不得猜测或编造。
+9. **验证并停止**：只运行与修改范围匹配的格式、构建、moc、测试或文档验证；未配置
+   工具链时报告“未配置”，不得声称文档零警告。
+
+QCH 必须沿用已确认的 QDoc 或 Doxygen 基础引擎；只有项目已依赖 ECM 时才使用
+ECMAddQch。不得仅为 `.qch` 自动切换基础引擎或引入完整 KApiDox。
+
+## 4. 实际场景示例
+
+### 场景 1：新函数选择现代返回类型
+
+目标标准支持 C++17，且空值确实表达“没有有效颜色”时，可以采用 `std::optional`；这
+不是无条件的“新代码必须现代化”。
+
 ```cpp
-// ❌ 错误：违反强制规范（单语句无括号）
-if (condition)
-    doSomething();
-
-// ✅ 正确：符合强制规范
-if (condition) {
-    doSomething();
-}
-```
-
----
-
-### 2️⃣ **可选推荐**（Optional Recommended）
-
-**定义**：鼓励使用的现代化最佳实践，但不强制要求。
-
-**AI 行为**：
-- ✅ **新代码/新功能**：默认使用推荐写法
-- 🔄 **维护旧代码**：保持原有风格，不强制重构
-- 🤝 **用户明确偏好**：尊重用户选择，无需多次提醒
-- 💡 **首次使用**：可以简要说明推荐写法的优点（仅一次）
-
-**包含内容**（详见当前目录中的代码规范文档第 5 章）：
-- `std::optional<T>` vs `bool func(T *out)`
-- 结构化绑定 vs `QPair`
-- `constexpr` vs `const`/`#define`
-- `[[nodiscard]]`、`[[maybe_unused]]` 属性
-- STL 容器（`std::span`、`std::variant` 等）vs Qt 容器
-
-**示例**：
-```cpp
-// ✅ 推荐：现代 C++17 写法
-std::optional<QColor> tryGetColor() {
-    if (isValid) {
-        return QColor(255, 0, 0);
-    }
-    return std::nullopt;
-}
-
-// ✅ 也可以接受：传统写法
-bool getColor(QColor *outColor) {
-    if (isValid) {
-        *outColor = QColor(255, 0, 0);
-        return true;
-    }
-    return false;
-}
-```
-
----
-
-### 3️⃣ **项目特定约定**（Project-Specific）
-
-**定义**：根据项目历史或团队习惯形成的惯例。
-
-**AI 行为**：
-- 🔍 **分析现有代码**：学习项目的实际编码风格
-- 📊 **统计分析**：如果现有代码库中 90% 使用某种写法，优先沿用
-- 🆕 **新模块**：可以适度引入现代化写法
-- 📝 **文档更新**：将新约定补充到发布包内对应规范文档（优先当前目录中的代码规范与注释规范文档），并同步更新本文档的决策说明（如适用）
-
----
-
-## 🤖 AI 编码决策树
-
-当 AI 助手生成代码时，按以下流程决策：
-
-```
-开始生成代码
-    ↓
-是否违反 强制规范？
-    ├─ 是 → ❌ 拒绝生成，提供符合规范的替代方案
-    └─ 否 → 继续
-         ↓
-涉及对象生命周期管理？
-         ├─ 否 → 继续
-         └─ 是 → 先判断是否为 QObject 派生
-                ├─ 是 → 禁止 copy/move/按值容器；优先 new T(parent)，必要时 deleteLater()，禁止手动 delete
-                └─ 否 → 使用 RAII/智能指针，禁止裸 new/delete
-                     ↓
-是新代码还是维护旧代码？
-    ├─ 新代码 → 优先使用 可选推荐 的现代写法
-    └─ 旧代码 → 保持原有风格
-          ↓
-用户是否明确要求特定写法？
-    ├─ 是 → 尊重用户选择（不违反强制规范即可）
-    └─ 否 → 使用推荐写法
-         ↓
-生成代码完成
-```
-
----
-
-## 📊 实际场景示例
-
-### 场景 1：用户请求生成新的工具函数
-
-**用户请求**：
-> "写一个函数，尝试解析配置文件中的颜色值，如果失败返回空"
-
-**AI 决策过程**：
-1. ✅ 这是新代码，优先使用现代写法
-2. ✅ 使用 `std::optional<QColor>` 返回值
-3. ✅ 函数名使用 `camelCase`，常量使用 `k` 前缀
-4. ✅ 字符串字面量使用 `QStringLiteral`
-
-**AI 生成的代码**：
-```cpp
-#include <QColor>
-#include <QString>
-#include <optional>
-
-std::optional<QColor> parseColorFromConfig(const QString &key) {
-    constexpr int kDefaultAlpha = 255;
-
-    // 尝试从配置读取
-    QString colorStr = readConfigValue(key);
-    if (colorStr.isEmpty()) {
+std::optional<QColor> parseColorFromConfig(const QString &key)
+{
+    const QString colorString = readConfigValue(key);
+    if (colorString.isEmpty()) {
         return std::nullopt;
     }
 
-    QColor color(colorStr);
+    const QColor color(colorString);
     if (!color.isValid()) {
         return std::nullopt;
     }
@@ -170,42 +166,21 @@ std::optional<QColor> parseColorFromConfig(const QString &key) {
 }
 ```
 
-**AI 说明**：
-> 我使用了 `std::optional<QColor>` 作为返回类型，这是 C++17 推荐的现代写法。如果您更倾向于传统的 `bool parseColor(const QString&, QColor*)` 风格，我可以调整。
+示例只保留参与返回逻辑的变量，不添加重复代码语义的注释。
 
----
+### 场景 2：维护既有 API
 
-### 场景 2：用户请求修改现有函数
+维护 `bool + 输出参数` 合同时，不因可选推荐改成 `std::optional`；只修改任务要求的
+验证逻辑和当前触及的格式。
 
-**现有代码**：
 ```cpp
-bool MainWindow::loadConfig(QString *errorMsg) {
-    if (!m_configFile.exists()) {
-        *errorMsg = QString("Config file not found");
-        return false;
-    }
-    // ...
-}
-```
-
-**用户请求**：
-> "添加一个新的配置验证步骤"
-
-**AI 决策过程**：
-1. ✅ 这是维护旧代码，保持原有风格
-2. ✅ 继续使用 `bool + 输出参数` 模式（不强制改为 `std::optional`）
-3. ✅ 字符串构造使用 `QStringLiteral`（强制规范）
-4. ✅ `MainWindow` 是普通类，其 private 成员继续使用 `m_` 前缀
-
-**AI 生成的代码**：
-```cpp
-bool MainWindow::loadConfig(QString *errorMsg) {
+bool MainWindow::loadConfig(QString *errorMsg)
+{
     if (!m_configFile.exists()) {
         *errorMsg = QStringLiteral("Config file not found");
         return false;
     }
 
-    // 新增：配置验证步骤
     if (!validateConfigSchema()) {
         *errorMsg = QStringLiteral("Config schema validation failed");
         return false;
@@ -215,125 +190,94 @@ bool MainWindow::loadConfig(QString *errorMsg) {
 }
 ```
 
-**AI 行为**：
-- ✅ 保持了原有的 `bool + 输出参数` 风格
-- ✅ 修正了字符串字面量写法（从 `QString("...")` 改为 `QStringLiteral`）
-- ✅ 不会主动建议重构为 `std::optional`
+### 场景 3：用户明确选择合法传统写法
 
----
+用户要求 `QPair` 时，先确认它不违反目标标准、public ABI 或 meta-object 合同；确认合法后
+直接执行，不机械建议改用结构化绑定。所有函数示例遵守项目 clang-format 基线。
 
-### 场景 3：用户明确要求传统写法
+### 场景 4：项目门禁下的 `Q_OBJECT`
 
-**用户请求**：
-> "用传统的 QPair 写一个返回迭代器和插入状态的函数"
+项目门禁启用时，即使类型没有自身 signal、slot 或 property，项目范围内的 `QObject` 子类
+也必须添加 `Q_OBJECT`：
 
-**AI 决策过程**：
-1. ✅ 用户明确要求 `QPair`，尊重用户选择
-2. ✅ 不提示使用结构化绑定
-3. ✅ 仍然遵守强制规范（命名、格式等）
-
-**AI 生成的代码**：
 ```cpp
-QPair<QMap<QString, int>::iterator, bool> insertValue(
-    QMap<QString, int> &map,
-    const QString &key,
-    int value)
+class InternalWorker : public QObject
 {
-    auto it = map.find(key);
-    if (it != map.end()) {
-        return qMakePair(it, false);
-    }
+    Q_OBJECT
 
-    it = map.insert(key, value);
-    return qMakePair(it, true);
+public:
+    explicit InternalWorker(QObject *parent = nullptr);
+};
+```
+
+AI/agent 必须确认该类型属于门禁覆盖范围，并验证 moc/AUTOMOC、编译和链接链路。技术上
+无法由 moc/build 处理的类型必须引用项目正式例外；没有正式例外时不得静默省略。
+
+### 场景 5：QObject 生命周期
+
+“所有 `QObject` 都禁止直接 `delete`”仍然不是正确表述。动态子对象优先 parent ownership；
+事件处理、跨线程销毁请求或明确异步 worker 生命周期时使用 `deleteLater()`，并确认所属
+线程仍有可处理 deferred delete 的事件循环。
+
+```cpp
+QWidget *createWidget(QWidget *parent)
+{
+    auto *widget = new QWidget(parent);
+    widget->setObjectName(QStringLiteral("editorPane"));
+    return widget;
+}
+
+void bindWorkerLifetime(Worker *worker)
+{
+    // 前提：worker 所在线程仍能处理 deferred delete。
+    QObject::connect(worker, &Worker::finished, worker, &QObject::deleteLater);
 }
 ```
 
----
+跨线程直接删除或在对象处理所接收事件时同步删除必须阻止；其他场景按可证明的 owner、
+线程和事件状态决定，不批量改写既有生命周期。
 
-### 场景 4：用户要求违反强制规范
+## 5. AI/agent 应该做与不应该做的事
 
-**用户请求**：
-> "用裸 new 创建一个 QWidget，然后我会在合适时机 delete 它"
+### 应该做
 
-**AI 决策过程**：
-1. ❌ 违反强制规范（对 `QObject` 派生对象手动 `delete`）  
-2. ✅ 允许裸 `new`，但必须用父子树或 `deleteLater()` 释放  
+1. 先锁定范围，再执行技术硬要求、项目门禁和专题规范。
+2. 门禁启用时，对任务范围内所有适用 `QObject` 子类添加 `Q_OBJECT`，并验证 moc/build。
+3. 区分 Qt 技术硬要求、Qt/KDE 上游强烈建议和项目强制政策。
+4. 保护 public API/ABI、QML/meta-object 合同和已验证生命周期。
+5. 只使用真实版本、追踪信息、线程模型和文档 profile。
+6. 使用真实执行过的验证结果完成交付。
 
-**AI 响应**：
-> ⚠️ **无法按原需求生成代码**
->
-> 根据项目编码规范：`QObject` 派生对象允许裸 `new`，但**禁止手动 `delete`**；应使用父子对象树或 `deleteLater()` 做事件循环安全析构。
->
-> **推荐替代方案**：
->
-> **方案 1：使用 Qt 父子树管理**（优先）
-> ```cpp
-> void createWidget(QWidget *parent) {
->     auto *widget = new QWidget(parent);
->     widget->setObjectName(QStringLiteral("myWidget"));
-> }
-> ```
->
-> **方案 2：无 parent 且涉及异步/事件循环时，用 deleteLater()**
-> ```cpp
-> void createWidget() {
->     auto *widget = new QWidget();
->     widget->setObjectName(QStringLiteral("myWidget"));
-> 
->     // 事件循环析构，避免手动 delete
->     widget->deleteLater();
-> }
-> ```
->
-> 如果你确实需要“立即释放”，请说明为何不能走事件循环析构，我可以帮你调整为更安全的生命周期设计（例如明确 owner、改为非 QObject 资源走 RAII 等）。
+### 不应该做
 
----
+1. 依据代码占比自动建立规范。
+2. 未经项目授权把建议升级为门禁，或在门禁未启用时全树补 `Q_OBJECT`。
+3. 门禁已启用时把 private/internal 类自行排除。
+4. 把所有直接销毁视为违规，或把所有异步代码机械改成 `deleteLater()`。
+5. 编造版本、日期、bug ID、owner、替代 API 或技术例外。
+6. 自动修改权威文档、引入生成器、同步分发版或扩大重构范围。
 
-## 🎯 关键原则总结
+## 6. 相关文档、验证与版本联动
 
-### AI 应该做的 ✅
+相关权威文档：
 
-1. **严格执行强制规范**：零容忍违规
-2. **新代码使用现代写法**：默认采用"可选推荐"
-3. **维护旧代码保持风格**：不强制重构
-4. **尊重用户明确选择**：用户懂得权衡
-5. **提供教育性说明**：首次使用新特性时简要解释（不啰嗦）
+- [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md)
+- [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md)
+- [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md)
+- [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md)
+- [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md)
+- [`Qt6_CPP17_CLANG-FORMAT`](./Qt6_CPP17_CLANG-FORMAT)
 
-### AI 不应该做的 ❌
+提交前按任务范围检查：
 
-1. **不强制推荐项**：不反复提示使用 `std::optional`
-2. **不混合风格**：在同一文件中混用传统和现代写法
-3. **不假设用户知识盲区**：简洁说明，不过度教学
-4. **不自作主张重构**：除非违反强制规范
-5. **不忽略项目历史**：学习现有代码库的风格
-
----
-
-## 📚 相关文档
-
-### 发布包入口（统一入口）
-
-本目录提供一组可直接阅读与分发的规范文档，便于在单一语言目录内完成查阅：
-- [`代码规范文档`](./Qt6_CPP17_Coding_Style.md)（可选推荐见第 5 章）
-- 当前目录随附的 clang-format 格式基线说明（用于统一格式约定）
-- [`注释规范文档`](./CPP_Code_Comment_Guidelines.md)（注释规范）
-- AI 行为与决策树（本文档）
-
-#### 建议阅读顺序
-1. 格式约定与格式基线说明
-2. [代码规范文档](./Qt6_CPP17_Coding_Style.md)
-3. [注释规范文档](./CPP_Code_Comment_Guidelines.md)
-4. AI 行为说明（本文档）
-
-#### 链接规范
-- 仅使用相对链接，且仅指向发布包内文件/锚点；禁止引用非发布路径或仅在特定工具中存在的入口文件名。
-- 标题调整导致锚点变化时，需同步更新引用链接，避免失效引用。
-
-#### 版本联动规则
-- 发布包作为一个整体维护统一的 `文档包版本`；所有声明该版本的规范文档随发布一起更新。
-
----
+- 门禁启用时，范围内的 `QObject` 子类全部具有 `Q_OBJECT`，或引用正式技术例外。
+- moc/AUTOMOC、编译、链接和运行期元对象检查通过，不能只检查源码文本。
+- 注释和示例遵循 `ColumnLimit: 100` 的软基线、`ReflowComments: false`，以及
+  `BraceWrapping.AfterFunction: true`。
+- 所有被修改的函数示例符合项目 clang-format 基线。
+- 文档 profile 存在时才执行 QDoc、Doxygen、KApiDox、Doxyqml 或 QCH 验证。
+- 未配置工具链时明确报告“未配置”，不得声称零警告。
+- 只有明确的文档发布或同步任务才联动根目录、`cn/`、`en/`、版本、日期和链接。
 
 **文档包版本**：v1.1.0
 **最后更新**：2026-07-25

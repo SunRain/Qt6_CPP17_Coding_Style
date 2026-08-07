@@ -1,0 +1,27 @@
+# TEMPLATE ONLY - NOT AN ENABLED PROJECT CONFIGURATION.
+# Replace every @...@ token before use.
+
+project = @PROJECT_NAME@
+description = @PROJECT_DESCRIPTION@
+version = @PROJECT_VERSION@
+url = @PROJECT_URL@
+
+outputdir = @OUTPUT_DIR@
+headerdirs = @PUBLIC_INCLUDE_DIR@
+sourcedirs = @CPP_SOURCE_DIR@ @QML_SOURCE_DIR@
+exampledirs = @EXAMPLE_DIR@
+imagedirs = @IMAGE_DIR@
+excludedirs = @EXCLUDE_DIRS@
+depends = @QDOC_DEPENDS@
+
+# QDoc C++ and QML documentation are normally generated from this same profile.
+# Add module-specific depends, sources, and filters only after checking the project
+# QDoc configuration and the installed Qt version.
+
+# Optional Qt Help output. Enable only when QCH is an explicit project requirement.
+# qhp.projects = @QHP_PROJECT_ID@
+# qhp.@QHP_PROJECT_ID@.file = @QHP_FILE@
+# qhp.@QHP_PROJECT_ID@.namespace = @QHP_NAMESPACE@
+# qhp.@QHP_PROJECT_ID@.virtualFolder = @QHP_VIRTUAL_FOLDER@
+# qhp.@QHP_PROJECT_ID@.indexTitle = @PROJECT_NAME@ API Documentation
+# qhp.@QHP_PROJECT_ID@.indexRoot = @QHP_INDEX_ROOT@

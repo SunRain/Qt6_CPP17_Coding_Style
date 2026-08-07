@@ -22,6 +22,10 @@
 
 当专题范围内的细节与本文件摘要不一致时，以对应专题为准；本文件只保留摘要和跳转引用，避免三份文档规则漂移。
 
+本总纲同时是 `Q_OBJECT` 存在性项目门禁的权威来源：项目内所有 `QObject` 派生类均必须
+包含 `Q_OBJECT`。这是本项目把 Qt 上游强烈建议提升为可执行门禁的政策，不应表述为 Qt
+的普遍技术要求；宏的位置和顺序仍由 `Qt_Macro_Layout_Coding_Style.md` 决定。
+
 ## 0 总览
 - 编译器：GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
 - 标准：C++17 (`set(CMAKE_CXX_STANDARD 17)`)
@@ -398,7 +402,7 @@ Foo::Foo(int a, int b)
 ## 6 Qt 6 专属约定
 | 规则 | 正例 | 反例 |
 |---|---|---|
-| Q_OBJECT | 每个 QObject 派生必须带 | 忘记导致 qobject_cast 失败 |
+| `Q_OBJECT` | 项目门禁：每个 `QObject` 派生类均包含 | 省略宏或未经记录自行豁免 |
 | 信号槽连接 | `connect(sender, &Sender::valueChanged, receiver, &Receiver::update);` | `SIGNAL/SLOT` 字符串 |
 | 字符串字面量 | `QStringLiteral("hello")` 或 `u"hello"_qs` | `QString("hello")` |
 | 线程耗时 | `QtConcurrent::run(&Worker::doWork)` | 手动 `new Thread` |
@@ -635,12 +639,26 @@ Q_DECLARE_METATYPE(Payload)
 // qRegisterMetaType<Payload>("Payload");
 ```
 
-### 6.3 元对象系统与属性（Q_OBJECT / Q_PROPERTY / 元类型）（强制 + 推荐）
+### 6.3 元对象系统与属性（Q_OBJECT / Q_PROPERTY / 元类型）（项目门禁 + 强制 + 推荐）
 
-#### 6.3.1 宏与类型选择（强制）
+#### 6.3.1 `Q_OBJECT` 项目强制门禁与宏选择
 
-- **必须**：任何 `QObject` 派生类必须包含 `Q_OBJECT`。
-- **推荐**：仅需要反射（枚举/属性）但不需要 QObject 生命周期/信号槽的值类型，使用 `Q_GADGET`；需要在命名空间暴露枚举使用 `Q_NAMESPACE`（配合 `Q_ENUM_NS`/`Q_FLAG_NS`）。
+Qt 的最低技术要求是：使用自身信号、属性、元对象可调用方法、枚举、QML/插件元数据或
+其他元对象服务的 `QObject` 派生类必须包含 `Q_OBJECT`；Qt 同时强烈建议其他
+`QObject` 子类也使用该宏。本项目将后者提升为项目强制门禁：
+
+- **必须**：项目内所有 `QObject` 派生类都包含 `Q_OBJECT`，覆盖 public、protected、
+  private/internal、嵌套和辅助类型，不因当前没有信号或属性而自行缩小范围。
+- **必须**：新增或修改该类时，确认项目采用的 qmake 或 CMake 配置、moc/AUTOMOC、编译和
+  最终链接链路都能处理新增的元对象代码；适用时还应检查运行期元对象行为。
+- **技术例外**：模板、header-only 或其他 moc/build 受限类型不得静默跳过。确实无法满足
+  门禁时，必须记录技术原因、责任人和移除条件，或先调整类型/构建设计使其可处理。
+- **布局边界**：`Q_OBJECT` 的位置、宏顺序和类体布局遵循
+  `Qt_Macro_Layout_Coding_Style.md`；本节只决定宏是否必须存在。
+
+本节的“必须”是本项目政策，不能直接推导为其他一般 Qt 库的通用规则。仅需要反射
+（枚举/属性）但不需要 `QObject` 生命周期、信号槽的值类型，推荐使用 `Q_GADGET`；需要
+在命名空间暴露枚举时使用 `Q_NAMESPACE`（配合 `Q_ENUM_NS`/`Q_FLAG_NS`）。
 
 #### 6.3.2 Q_PROPERTY（强制）
 
@@ -826,6 +844,8 @@ clang-tidy 只负责检查词法命名。`PublicMemberPrefix: ''` 不授权任�
 - [ ] 单语句 if/for/while 加 braces
 - [ ] 枚举尾逗号
 - [ ] QStringLiteral / u""_qs
+- [ ] Q_OBJECT 项目门禁：范围内每个 QObject 派生类都包含 `Q_OBJECT`
+- [ ] Q_OBJECT 技术例外已正式记录；moc/AUTOMOC、编译和链接验证通过
 - [ ] `QObject`：禁止 copy/move/按值容器；优先 `Q_DISABLE_COPY_MOVE`；用父子树/`deleteLater()`，禁止手动 `delete`；非 `QObject` 用 `std::unique_ptr`/RAII
 - [ ] 线程耗时任务用 QtConcurrent
 - [ ] 无异常：不新增 `throw`/`try`/`catch`；可能失败的 API 明确失败表达，并用 `[[nodiscard]]` 防忽略
