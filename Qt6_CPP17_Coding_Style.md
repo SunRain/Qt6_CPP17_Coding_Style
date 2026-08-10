@@ -31,7 +31,7 @@
 - 标准：C++17 (`set(CMAKE_CXX_STANDARD 17)`)
 - 警告：`-Wall -Wextra -Wpedantic` 全开，**零警告提交**
 - 格式化：项目根放置 `Qt6_CPP17_CLANG-FORMAT`（必要时可复制/链接为 `.clang-format` 供工具自动发现），提交前 `git clang-format --style=file:Qt6_CPP17_CLANG-FORMAT`
-- 禁止：异常、RTTI、dynamic_cast、裸 new（`QObject` 派生为明确例外，见第 6 章）、单语句无 braces、64-bit enum
+- 项目级禁止：C++ 异常（`throw`/`try`/`catch`；这是本项目自行提高的约束，见 §5.1）、RTTI、dynamic_cast、裸 new（`QObject` 派生为明确例外，见第 6 章）、单语句无 braces、64-bit enum
 - Qt 宏写法：公共库、toolkit header、普通 app/internal code 全部使用无关键字宏写法：`Q_SIGNALS:`、`Q_SLOTS`、`Q_EMIT`
 - Use templates wisely, not just because you can（明智地使用模板，不仅仅是因为你可以）
 - Avoid C casts, prefer C++ casts (static_cast, const_cast, reinterpret_cast)
@@ -331,14 +331,15 @@ Foo::Foo(int a, int b)
 | 二进制缓冲 | `std::span<const std::byte> buf` | 需要 C++20 |
 | 原子视图 | `std::atomic_ref<int>(val).fetch_add(1)` | 需要 C++20 |
 
-## 5.1 错误处理与断言（无异常项目）
+## 5.1 错误处理与断言（项目级无异常约束）
 
-> 本规范禁止异常（`throw`/`try`/`catch`），因此必须有统一、可审计的“失败表达”策略，避免项目内混乱与吞错。
+> Qt 和 KDE 官方规范没有把 `throw`、`try`、`catch` 作为普遍禁止的语法。本项目在 Qt/KDE 通用建议之上自行提高约束：项目 C++ 代码禁止使用这三种语法，也不把异常作为 API 错误返回或控制流机制。
 
 ### 5.1.1 总则（强制）
 
-- **禁止**：项目代码中使用 `throw`/`try`/`catch`；禁止以异常作为控制流。
+- **项目自定义加严约束（强制）**：项目 C++ 代码中禁止 `throw`、`try`、`catch`；不得以异常作为 API 错误返回机制或控制流。该条款是本项目自行提高的约束，不应表述为 Qt 或 KDE 的普遍技术要求。
 - **必须**：任何“可能失败”的函数都要**显式表达失败**；禁止通过隐式默认值吞掉错误。
+- **必须**：API 错误使用错误码、错误状态、`errorString()` 等显式接口表达；诊断文本不能替代结构化错误状态。
 - **必须**：失败返回值必须带 `[[nodiscard]]`，防止调用方忽略失败（例如 `[[nodiscard]] bool ...`、`[[nodiscard]] std::optional<T> ...`）。
 - **必须**：断言只用于“编程错误”（前置条件/不变量被破坏，理论上不应发生）；对用户输入、I/O、网络、插件加载等可恢复错误，必须走返回值错误路径。
 - **应该**：错误信息的归属明确：底层库函数**不应**无条件 `qWarning()` 噪声刷屏；在“边界层”（UI/命令/服务入口）统一记录日志或转为用户可见信息。
@@ -358,9 +359,15 @@ Foo::Foo(int a, int b)
 **C. 需要错误原因（结构化）：`bool + ErrorCode`**
 - **推荐**：对可枚举的失败原因定义 `enum class ErrorCode`，并以 `ErrorCode *out` 返回（或作为成员 `lastError()`），避免大量字符串拼接。
 
-### 5.1.3 第三方异常边界（强制）
+**D. Qt 错误状态与诊断文本：`error()` / `errorString()`**
+- **推荐**：对 Qt 类型提供的 `error()`、`errorString()` 等接口，先检查错误状态，再读取诊断文本；`errorString()` 只用于解释错误，不作为成功/失败判定。
+- **必须**：在公共 API 注释中写明错误状态的生命周期、清除时机和 `errorString()` 的有效条件。
 
-- **必须**：若依赖的第三方库可能抛异常，必须在模块边界捕获并转换为本节的失败表达；异常不得跨越 Qt 事件循环/信号槽边界传播。
+### 5.1.3 第三方异常依赖（强制禁止跨入）
+
+- **禁止**：接入会把 C++ 异常传播到项目调用链的第三方 API；异常不得跨越 Qt 事件循环、信号槽、线程、插件或 QML/C++ 边界。
+- **必须**：优先使用第三方库的 no-exceptions 配置或不抛异常的 API，并在模块边界转换为错误码、错误状态或 `errorString()`。
+- **禁止**：以新增 `try`/`catch` 作为常规第三方适配方案；无法保证无异常传播的依赖视为不符合本项目约束。
 
 ### 5.1.4 示例（Qt6 + C++17）
 

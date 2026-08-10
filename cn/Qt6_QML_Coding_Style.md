@@ -26,6 +26,7 @@ English | 简体中文 | 原文
 - QML ↔ C++ 边界类型、Borrow / Owning、QObject 所有权语义，以 `Qt6_KDE_API_Parameter_Style.md` 为准；本文只引用结论。
 - 注释规范以 `CPP_Code_Comment_Guidelines.md` 为准；本文只补充 QML 语境中的增量要求。
 - 基础格式、命名、生命周期、线程、错误处理，以 `Qt6_CPP17_Coding_Style.md` 为总纲。
+- 本项目将无异常错误处理约束扩展到 QML/JavaScript 业务代码；这是本项目自行提高的约束，不是 Qt/QML 语法的普遍禁令。
 
 ---
 
@@ -394,7 +395,7 @@ Qt 6.7+ 项目中，函数类型注解会被运行期调用强制执行；不要
 - QML 内 JavaScript 只处理局部 UI glue code。
 - 不把业务核心、I/O、大循环、模型批量转换写在 QML。
 - 不使用隐式全局变量。
-- 不吞掉异常或错误状态。
+- 不吞掉错误状态；QML/JavaScript 业务代码不得引入异常控制流。
 - 多语句 JavaScript 使用分号。
 - 使用 `let` / `const`，避免新增 `var`。
 
@@ -945,29 +946,10 @@ Image {
 - 不提交无意义 `console.log()`。
 - `console.warn()` / `console.error()` 必须包含可定位上下文。
 - Loader、Image、动态创建、异步组件必须处理失败状态。
-- 不允许空 `catch`。
+- **项目自定义加严约束（强制）**：QML/JavaScript 业务代码禁止 `throw`、`try`、`catch`；不得把 JavaScript 异常作为 API 错误返回或控制流机制。
+- API 失败必须通过 C++ 暴露的错误码、错误状态、`errorString()` 或等价的显式结果/属性表达。
 - 不允许静默吞错后继续假装成功。
 - 稳定错误码、诊断字段、trace payload 必须集中定义，不散落字符串。
-
-推荐：
-
-```qml
-try {
-    root.applyConfig(config);
-} catch (error) {
-    console.error("Failed to apply config:", error);
-    root.errorMessage = qsTr("Failed to apply configuration.");
-}
-```
-
-禁止：
-
-```qml
-try {
-    doSomething();
-} catch (error) {
-}
-```
 
 ---
 

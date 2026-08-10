@@ -36,7 +36,7 @@ Macro placement and order remain governed by `Qt_Macro_Layout_Coding_Style.md`.
 - Standard: C++17 (`set(CMAKE_CXX_STANDARD 17)`)
 - Warnings: enable `-Wall -Wextra -Wpedantic`, **no-warning commits**
 - Formatting: keep a shared clang-format baseline file in the project (copy/symlink it to `.clang-format` if you want tooling auto-discovery); run `git clang-format --style=file` against the project baseline before committing
-- Forbidden: exceptions, RTTI, `dynamic_cast`, raw `new` (explicit exception for `QObject`-derived types; see Chapter 6), single-statement control blocks without braces, 64-bit enums
+- Project-level prohibition: C++ exceptions (`throw`/`try`/`catch`; a project-specific stricter constraint, see §5.1), RTTI, `dynamic_cast`, raw `new` (explicit exception for `QObject`-derived types; see Chapter 6), single-statement control blocks without braces, 64-bit enums
 - Qt macro spelling: public libraries, toolkit headers, ordinary app code, and internal code all use keyword-free macro spelling: `Q_SIGNALS:`, `Q_SLOTS`, `Q_EMIT`
 - Use templates wisely, not just because you can
 - Avoid C casts, prefer C++ casts (`static_cast`, `const_cast`, `reinterpret_cast`)
@@ -336,14 +336,15 @@ Foo::Foo(int a, int b)
 | Binary buffer views | `std::span<const std::byte> buf` | requires C++20 |
 | Atomic view | `std::atomic_ref<int>(val).fetch_add(1)` | requires C++20 |
 
-## 5.1 Error Handling and Assertions (No-Exception Codebase)
+## 5.1 Error Handling and Assertions (Project-Level No-Exception Constraint)
 
-> This standard forbids exceptions (`throw`/`try`/`catch`), so the project must adopt a unified, auditable "failure reporting" strategy to avoid inconsistency and swallowed errors.
+> Qt and KDE guidelines do not universally prohibit the `throw`, `try`, or `catch` syntax. This project adopts a stricter project-specific constraint on top of the general Qt/KDE guidance: project C++ code must not use these three constructs and must not use exceptions as an API error-return or control-flow mechanism.
 
 ### 5.1.1 General Rules (Mandatory)
 
-- **Forbidden**: `throw`/`try`/`catch` in project code; do not use exceptions as control flow.
+- **Project-specific stricter constraint (mandatory)**: project C++ code must not use `throw`, `try`, or `catch`; exceptions must not be used as an API error-return mechanism or as control flow. Do not describe this policy as a universal Qt or KDE technical requirement.
 - **Required**: any function that "may fail" must **explicitly report failure**; do not swallow errors via implicit default values.
+- **Required**: expose API errors through explicit error codes, error states, `errorString()`, or equivalent interfaces; diagnostic text must not replace structured error state.
 - **Required**: failure-returning APIs must be `[[nodiscard]]` to prevent callers from ignoring failures (e.g., `[[nodiscard]] bool ...`, `[[nodiscard]] std::optional<T> ...`).
 - **Required**: use assertions only for *programmer errors* (broken preconditions/invariants that should not happen). For recoverable errors (user input, I/O, network, plugin loading, etc.), use return-value-based failure reporting.
 - **Should**: be clear about who owns error reporting. Low-level library functions should not spam `qWarning()` unconditionally; log or surface user-visible errors at the boundary layer (UI/CLI/service entry points).
@@ -363,9 +364,15 @@ Foo::Foo(int a, int b)
 **C. Error reason needed (structured): `bool + ErrorCode`**
 - **Recommended**: for enumerable failure reasons, define `enum class ErrorCode` and return it via `ErrorCode *out` (or expose as `lastError()`), avoiding excessive string construction.
 
-### 5.1.3 Third-Party Exception Boundary (Mandatory)
+**D. Qt error state and diagnostic text: `error()` / `errorString()`**
+- **Recommended**: for Qt types that expose `error()`, `errorString()`, or similar interfaces, inspect the error state first and then read the diagnostic text; `errorString()` explains an error but does not determine success or failure.
+- **Required**: public API comments must document the error-state lifetime, when it is cleared, and when `errorString()` is valid.
 
-- **Required**: if a third-party dependency may throw, catch at the module boundary and translate into one of the failure-reporting styles above. Exceptions must not cross Qt event loop / signal-slot boundaries.
+### 5.1.3 Third-Party Exception Dependencies (Forbidden at the Boundary)
+
+- **Forbidden**: integrate a third-party API that propagates C++ exceptions into the project call chain; exceptions must not cross Qt event-loop, signal-slot, thread, plugin, or QML/C++ boundaries.
+- **Required**: prefer the dependency's no-exceptions configuration or non-throwing APIs, and translate at the module boundary to an error code, error state, or `errorString()`.
+- **Forbidden**: adding `try`/`catch` as the routine third-party adaptation strategy; a dependency that cannot guarantee non-throwing propagation is incompatible with this project policy.
 
 ### 5.1.4 Examples (Qt6 + C++17)
 

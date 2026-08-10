@@ -26,6 +26,7 @@ Authority boundaries:
 - QML ↔ C++ boundary types, Borrow / Owning semantics, and QObject ownership are owned by `Qt6_KDE_API_Parameter_Style.md`; this document only references their conclusions.
 - Commenting rules are owned by `CPP_Code_Comment_Guidelines.md`; this document only adds QML-specific notes.
 - Baseline formatting, naming, lifetime, threading, and error handling are governed by `Qt6_CPP17_Coding_Style.md`.
+- This project extends the no-exception error-handling constraint to QML/JavaScript application code; this is a project-specific stricter constraint, not a universal Qt/QML syntax ban.
 
 ---
 
@@ -394,7 +395,7 @@ In Qt 6.7+ projects, function type annotations are enforced at runtime calls; do
 - Keep JavaScript in QML as local UI glue code.
 - Do not put core business logic, I/O, large loops, or bulk model transformation in QML.
 - Do not use implicit global variables.
-- Do not swallow exceptions or error states.
+- Do not swallow error states; QML/JavaScript application code must not introduce exception-driven control flow.
 - Use semicolons for multi-statement JavaScript.
 - Use `let` / `const`; avoid new `var`.
 
@@ -945,29 +946,10 @@ Image {
 - Do not commit meaningless `console.log()`.
 - `console.warn()` / `console.error()` must include enough context to locate the issue.
 - Handle failures for Loader, Image, dynamic creation, and async components.
-- Do not write empty `catch` blocks.
+- **Project-specific stricter constraint (mandatory)**: QML/JavaScript application code must not use `throw`, `try`, or `catch`; JavaScript exceptions must not be used as an API error-return or control-flow mechanism.
+- API failures must be expressed through C++-exposed error codes, error states, `errorString()`, or equivalent explicit results/properties.
 - Do not silently swallow errors and continue as if everything succeeded.
 - Centralize stable error codes, diagnostic fields, and trace payloads; do not scatter strings.
-
-Recommended:
-
-```qml
-try {
-    root.applyConfig(config);
-} catch (error) {
-    console.error("Failed to apply config:", error);
-    root.errorMessage = qsTr("Failed to apply configuration.");
-}
-```
-
-Forbidden:
-
-```qml
-try {
-    doSomething();
-} catch (error) {
-}
-```
 
 ---
 
