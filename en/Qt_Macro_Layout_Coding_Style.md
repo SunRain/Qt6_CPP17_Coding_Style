@@ -97,7 +97,7 @@ private:
 | `Q_EMIT` | At signal emission sites inside function bodies | Unified replacement for bare `emit` |
 | `Q_DISABLE_COPY` | Top of `private:` | Disables copy only |
 | `Q_DISABLE_MOVE` | Top of `private:` | Disables move only |
-| `Q_DISABLE_COPY_MOVE` | Top of `private:` | Preferred for `QObject`-derived classes |
+| `Q_DISABLE_COPY_MOVE` | Top of `private:` | Project gate for `QObject`-derived classes; stricter than general Qt/KDE practice |
 | `Q_DECLARE_PRIVATE` | `private:` of the Public API class | Access to `d_ptr` from the public class |
 | `Q_DECLARE_PUBLIC` | At the start of `FooPrivate`, before `public:` | Access to `q_ptr` from the private implementation |
 | `Q_D` / `Q_Q` | Near the beginning of function bodies | Used inside d-pointer functions |
@@ -143,7 +143,7 @@ Requirements:
 
 ## 5. `Q_DISABLE_COPY` / `Q_DISABLE_COPY_MOVE` Rules
 
-Recommended:
+Project rule:
 
 ```cpp
 class RuntimeCore : public QObject
@@ -162,16 +162,9 @@ private:
 
 Requirements:
 
-- `QObject`-derived classes are non-copyable and non-movable by default.
-- Prefer `Q_DISABLE_COPY_MOVE(Class)` in Qt6 projects.
-- If the project Qt baseline does not provide `Q_DISABLE_COPY_MOVE`, use:
-
-```cpp
-private:
-    Q_DISABLE_COPY(ClassName)
-    ClassName(ClassName &&) = delete;
-    ClassName &operator=(ClassName &&) = delete;
-```
+- **Required**: `QObject`-derived classes have identity semantics and must not be copyable or movable. This is a general requirement of the Qt lifetime model.
+- **Project-specific stricter constraint**: every `QObject`-derived class explicitly uses `Q_DISABLE_COPY_MOVE(Class)` to provide class-level compile-time diagnostics and make this contract explicit. This is a project gate, not a universal hard requirement of Qt/KDE projects.
+- **Scope**: this document targets Qt 6 and does not define a fallback for older Qt versions. Projects that explicitly support Qt 5 must define that compatibility rule separately.
 
 - Do not place it in `public:` unless the project has an explicit and consistent existing convention.
 - Place it at the top of `private:`, before private member variables.

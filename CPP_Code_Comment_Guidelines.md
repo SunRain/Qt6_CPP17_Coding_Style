@@ -25,7 +25,7 @@
 1. [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
    基础格式总纲。
 2. 本文只负责注释内容、覆盖范围和生成文档规则。
-3. [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md) 只补充 QML 语境，并显式引用
+3. [`Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md) 只补充 QML 语境，并显式引用
    本文，不重复维护通用注释规则。
 4. [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
    moc 宏的位置，不负责判断类型是否需要相应宏。
@@ -327,6 +327,9 @@ connect(worker, &Worker::finished, worker, &QObject::deleteLater);
 `deleteLater()`”。具体生命周期必须遵循总纲，并由可证明的 parent、owner、线程亲和性、
 事件处理状态和事件循环条件决定。
 
+对 shared-owned QObject，还应记录自定义 `deleteLater()` deleter、最后一个 owner 的释放时机、
+目标事件循环停止顺序，以及 `destroyed()` 或等价的实际析构证据。
+
 #### 6.2.4 QML/C++ 数据边界
 
 对 `QVariantMap`、`QVariantList`、model role、role name、QML 使用的字符串字段、restore
@@ -611,6 +614,6 @@ TODO/FIXME 必须包含真实的 bug ID、owner 或其他可追踪上下文之�
 
 ---
 
-**文档包版本**：v1.1.0
+**文档包版本**：v1.2.0
 
-**最后更新**：2026-07-25
+**最后更新**：2026-08-11

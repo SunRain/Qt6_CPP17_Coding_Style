@@ -195,6 +195,10 @@ parent ownership when a dynamic child shares its owner's lifetime. `deleteLater(
 cross-thread, or queued destruction when the object's thread can process deferred-delete events. Do not
 write a universal "never delete QObject" rule.
 
+For a shared-owned QObject, also document the custom `deleteLater()` deleter, when the last owner is
+released, the target event-loop shutdown order, and `destroyed()` or equivalent evidence of actual
+destruction.
+
 ```cpp
 // The worker has no parent because it moves to a worker thread.
 connect(worker, &Worker::finished, worker, &QObject::deleteLater);
@@ -254,5 +258,5 @@ or zero warnings without a configured toolchain, or expand a comment task into r
 
 ---
 
-**Document package version**: v1.1.0
-**Last updated**: 2026-07-25
+**Document package version**: v1.2.0
+**Last updated**: 2026-08-11

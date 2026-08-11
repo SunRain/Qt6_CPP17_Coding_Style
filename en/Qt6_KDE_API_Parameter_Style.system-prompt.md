@@ -58,6 +58,15 @@ You must treat lifetime rules as hard constraints:
 - never return a view into a temporary object
 - if a public API returns a view, its lifetime and invalidation conditions must be stated explicitly
 
+You must follow these smart-pointer and QObject-boundary rules:
+- Default exclusive ownership for non-QObjects is `std::unique_ptr`; do not select by Qt/std family and never rebuild an owner from `get()`, `data()`, `this`, or a borrowed return value.
+- Ordinary QObject parameters use `T *`/`T &` as borrows; QPointer is for members and deferred captures and must be re-checked in the object's thread.
+- A parent-owned QObject must not also be managed by an owning smart pointer. The project-specific shared-owned QObject rule requires a custom deleter that calls `deleteLater()` and releases the last owner before the target event loop stops.
+- A callback may capture a strong shared owner only when it is a co-owner and cancellation, release, and cycle handling are explicit; otherwise observe with QPointer or a matching weak pointer.
+- Public ABIs do not expose owning smart pointers by default; use parent ownership, an opaque handle, an explicit destroy API, or destruction inside the boundary when ownership cannot cross safely.
+- `QPluginLoader::instance()` is borrowed; do not delete it or create a second control block, and bind use to the loader's loaded state.
+- QML must distinguish C++/JavaScript ownership, QObject parent, and QQuickItem parentItem; QObject returned from `Q_INVOKABLE`/slot and from a property getter follow different default ownership rules.
+
 For `QByteArrayView`, you must follow these rules:
 - it is only suitable as a Borrow-only binary entry point
 - it must be passed by value

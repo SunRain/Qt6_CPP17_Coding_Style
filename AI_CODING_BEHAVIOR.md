@@ -21,7 +21,7 @@
 
 1. [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
    基础格式总纲。
-2. [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md) 只维护 QML 专题增量，并引用
+2. [`Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md) 只维护 QML 专题增量，并引用
    注释规范，不重复维护通用规则。
 3. [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
    moc 宏的位置、顺序与类体布局，不决定项目是否建立 `Q_OBJECT` 门禁。
@@ -80,6 +80,11 @@ enum、QML/插件元数据或其他自身元对象能力时，`Q_OBJECT` 属于 
   使用 `deleteLater()`。
 - `deleteLater()` 依赖对象所属线程能够处理 deferred delete；queued connection 或异步
   回调本身不自动证明必须使用它。
+- **本项目提高约束**：QObject 默认禁止 shared ownership。shared-owned QObject 必须使用调用
+  `deleteLater()` 的自定义 deleter，最后一个 owner 必须在目标事件循环停止前释放；主事件循环
+  停止后调用 `deleteLater()` 可能永久泄漏。
+- QPointer 仅是 non-owning guarded borrow；普通 API 参数使用 `T *`/`T &`，跨线程投递后在
+  目标线程重新判空。QPluginLoader::instance() 和 QML ownership 必须遵循对应专题合同。
 - 无法在当前代码范围证明 owner、线程和事件循环条件时，保留既有生命周期并报告，
   不主动批量改写。
 
@@ -261,7 +266,7 @@ void bindWorkerLifetime(Worker *worker)
 相关权威文档：
 
 - [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md)
-- [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md)
+- [`Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md)
 - [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md)
 - [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md)
 - [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md)
@@ -278,5 +283,5 @@ void bindWorkerLifetime(Worker *worker)
 - 未配置工具链时明确报告“未配置”，不得声称零警告。
 - 只有明确的文档发布或同步任务才联动根目录、`cn/`、`en/`、版本、日期和链接。
 
-**文档包版本**：v1.1.0
-**最后更新**：2026-07-25
+**文档包版本**：v1.2.0
+**最后更新**：2026-08-11

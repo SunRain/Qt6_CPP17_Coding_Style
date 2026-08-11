@@ -81,6 +81,11 @@ enum、QML/插件元数据或其他自身元对象能力时，`Q_OBJECT` 属于 
   使用 `deleteLater()`。
 - `deleteLater()` 依赖对象所属线程能够处理 deferred delete；queued connection 或异步
   回调本身不自动证明必须使用它。
+- **本项目提高约束**：QObject 默认禁止 shared ownership。shared-owned QObject 必须使用调用
+  `deleteLater()` 的自定义 deleter，最后一个 owner 必须在目标事件循环停止前释放；主事件循环
+  停止后调用 `deleteLater()` 可能永久泄漏。
+- QPointer 仅是 non-owning guarded borrow；普通 API 参数使用 `T *`/`T &`，跨线程投递后在
+  目标线程重新判空。QPluginLoader::instance() 和 QML ownership 必须遵循对应专题合同。
 - 无法在当前代码范围证明 owner、线程和事件循环条件时，保留既有生命周期并报告，
   不主动批量改写。
 
@@ -279,5 +284,5 @@ void bindWorkerLifetime(Worker *worker)
 - 未配置工具链时明确报告“未配置”，不得声称零警告。
 - 只有明确的文档发布或同步任务才联动根目录、`cn/`、`en/`、版本、日期和链接。
 
-**文档包版本**：v1.1.0
-**最后更新**：2026-07-25
+**文档包版本**：v1.2.0
+**最后更新**：2026-08-11

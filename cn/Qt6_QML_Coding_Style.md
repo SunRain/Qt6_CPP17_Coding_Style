@@ -17,13 +17,14 @@ English | 简体中文 | 原文
 
 - C++ 源码、QObject header、moc 宏布局
 - C++ 侧 QML 注册宏
-- QML ↔ C++ 边界类型与 C++ ownership 设计
+- QML ↔ C++ 边界类型与 C++ ownership 设计；本文只维护 QML 动态对象和视觉父级规则
 
 权威边界：
 
 - QML 语言层规则（对象声明顺序、绑定、组件 API、View/delegate、Loader、状态、动画、i18n、可访问性、QML 性能）以本文为权威。
 - QML 注册宏、C++ 侧类体布局、`QML_ELEMENT`、`QML_NAMED_ELEMENT`、`QML_SINGLETON`、`Q_INVOKABLE` 等宏位置，以 `Qt_Macro_Layout_Coding_Style.md` 为准。
 - QML ↔ C++ 边界类型、Borrow / Owning、QObject 所有权语义，以 `Qt6_KDE_API_Parameter_Style.md` 为准；本文只引用结论。
+- QML 动态对象的 `QObject::parent()`、`QQuickItem::parentItem()`、Loader/Instantiator owner 和 JavaScript ownership 区分，以本文动态对象规则为准；C++ ownership 转移仍以 API 参数专题为准。
 - 注释规范以 `CPP_Code_Comment_Guidelines.md` 为准；本文只补充 QML 语境中的增量要求。
 - 基础格式、命名、生命周期、线程、错误处理，以 `Qt6_CPP17_Coding_Style.md` 为总纲。
 - 本项目将无异常错误处理约束扩展到 QML/JavaScript 业务代码；这是本项目自行提高的约束，不是 Qt/QML 语法的普遍禁令。
@@ -723,7 +724,10 @@ Repeater {
 - 优先使用 `Loader`、`Component`、`Instantiator`、`Repeater`、View delegate 等声明式机制。
 - 只有声明式机制无法表达时，才使用 `Qt.createComponent()`。
 - 禁止在业务 UI 中使用 `Qt.createQmlObject()` 拼接运行期 QML 字符串。
-- 动态创建对象时，parent 必须比对象活得更久。
+- 动态创建对象时必须明确唯一的 QML/C++ owner；传给 `createObject()` 的 parent/owner 至少比对象活得更久。
+- 对 `QQuickItem` 必须分别审核 `QObject::parent()` 与 `QQuickItem::parentItem()`；视觉父级不等于 QObject parent，也不单独决定 C++ 销毁责任。
+- Loader、Instantiator、Repeater 和 View delegate 管理的对象不得再由业务代码独立 `destroy()` 或交给 C++ owning 智能指针接管；应通过其声明式 owner 释放。
+- JavaScript ownership、QObject parent tree 和 C++ owning 智能指针不得同时管理同一对象。
 - 不再需要的动态对象必须显式 `destroy()` 或由明确 owner 统一释放。
 - Loader、动态创建和异步加载必须处理失败状态。
 
@@ -1084,6 +1088,10 @@ ctest --test-dir build --output-on-failure
 - [ ] delegate 轻量，未做 I/O 或重计算
 - [ ] Connections 使用 function onXxx() 语法
 - [ ] Loader / Image / 动态创建处理错误状态
+- [ ] Loader / Instantiator / Repeater / delegate 的 owner 唯一且未被重复销毁
+- [ ] `QObject::parent()` 与 `QQuickItem::parentItem()` 已分别确认，未把视觉父级当作 QObject 所有权
+- [ ] QML JavaScript ownership、QObject parent tree 与 C++ owning 智能指针未重复管理同一对象
+- [ ] QML singleton、context property 和跨 engine 对象的 engine、线程与析构顺序明确
 - [ ] 用户可见文本使用 qsTr / qsTrId 或项目翻译机制
 - [ ] 可交互组件可键盘到达，焦点可见
 - [ ] 自定义交互控件设置合适 Accessible 信息
@@ -1095,7 +1103,7 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-**文档包版本**：v1.1.0
-**最后更新**：2026-07-25
+**文档包版本**：v1.2.0
+**最后更新**：2026-08-11
 
 ---

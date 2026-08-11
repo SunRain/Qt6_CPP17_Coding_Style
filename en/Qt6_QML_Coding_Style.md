@@ -17,13 +17,14 @@ Out of scope:
 
 - C++ source code, QObject headers, and moc macro layout
 - C++-side QML registration macros
-- QML ↔ C++ boundary types and C++ ownership design
+- QML ↔ C++ boundary types and C++ ownership design; this document only owns QML dynamic-object and visual-parent rules
 
 Authority boundaries:
 
 - QML language-level rules (object declaration order, bindings, component APIs, View/delegate, Loader, states, animations, i18n, accessibility, and QML performance) are owned by this document.
 - QML registration macros, C++-side class layout, `QML_ELEMENT`, `QML_NAMED_ELEMENT`, `QML_SINGLETON`, `Q_INVOKABLE`, and related macro placement are owned by `Qt_Macro_Layout_Coding_Style.md`.
 - QML ↔ C++ boundary types, Borrow / Owning semantics, and QObject ownership are owned by `Qt6_KDE_API_Parameter_Style.md`; this document only references their conclusions.
+- QML dynamic-object rules distinguish `QObject::parent()`, `QQuickItem::parentItem()`, Loader/Instantiator owners, and JavaScript ownership; C++ ownership transfer remains owned by the API parameter guideline.
 - Commenting rules are owned by `CPP_Code_Comment_Guidelines.md`; this document only adds QML-specific notes.
 - Baseline formatting, naming, lifetime, threading, and error handling are governed by `Qt6_CPP17_Coding_Style.md`.
 - This project extends the no-exception error-handling constraint to QML/JavaScript application code; this is a project-specific stricter constraint, not a universal Qt/QML syntax ban.
@@ -723,7 +724,10 @@ Repeater {
 - Prefer declarative mechanisms such as `Loader`, `Component`, `Instantiator`, `Repeater`, and View delegates.
 - Use `Qt.createComponent()` only when declarative mechanisms cannot express the need.
 - Do not use `Qt.createQmlObject()` to build runtime QML strings for product UI.
-- When creating objects dynamically, the parent must outlive the created object.
+- When creating objects dynamically, establish one explicit QML/C++ owner; the `createObject()` parent/owner must outlive the created object.
+- For `QQuickItem`, review `QObject::parent()` and `QQuickItem::parentItem()` separately; a visual parent is not the QObject parent and does not alone determine C++ destruction responsibility.
+- Objects managed by Loader, Instantiator, Repeater, and View delegates must not be independently destroyed by application code or handed to a C++ owning smart pointer; release them through the declarative owner.
+- JavaScript ownership, the QObject parent tree, and a C++ owning smart pointer must never manage the same object at the same time.
 - Destroy objects explicitly with `destroy()` when they are no longer needed, or release them through a clear owner.
 - Handle failures from Loader, dynamic creation, and async loading.
 
@@ -1084,6 +1088,10 @@ ctest --test-dir build --output-on-failure
 - [ ] Delegates are lightweight and do not perform I/O or heavy computation
 - [ ] Connections uses function onXxx() syntax
 - [ ] Loader / Image / dynamic creation handles error states
+- [ ] Loader / Instantiator / Repeater / delegate ownership is unique and objects are not destroyed twice
+- [ ] `QObject::parent()` and `QQuickItem::parentItem()` are reviewed separately; visual parenting is not treated as QObject ownership
+- [ ] QML JavaScript ownership, the QObject parent tree, and C++ owning smart pointers do not overlap
+- [ ] Engine, thread, and destruction order are explicit for QML singletons, context properties, and cross-engine objects
 - [ ] User-visible text uses qsTr / qsTrId or the project translation mechanism
 - [ ] Interactive components are keyboard reachable and have visible focus
 - [ ] Custom interactive controls provide suitable Accessible information
@@ -1095,7 +1103,7 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-**Package version**: v1.1.0
-**Last updated**: 2026-07-25
+**Package version**: v1.2.0
+**Last updated**: 2026-08-11
 
 ---

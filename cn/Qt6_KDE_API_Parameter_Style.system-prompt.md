@@ -58,6 +58,15 @@ English | 简体中文 | 原文
 - 禁止返回指向临时对象的 view
 - 若 public API 返回 view，必须明确其生命周期与失效条件
 
+你必须遵守以下智能指针和 QObject 边界规则：
+- 非 QObject 独占所有权默认使用 `std::unique_ptr`；不得按 Qt/std 指针家族机械选择，也不得从 `get()`、`data()`、`this` 或借用返回值重建 owner
+- 普通 QObject 参数使用 `T *`/`T &` 表达借用；QPointer 仅用于成员和延迟捕获，必须在对象所属线程重新判空
+- parent-owned QObject 不得再由 owning 智能指针管理；shared-owned QObject 的项目加严规则是使用调用 `deleteLater()` 的自定义 deleter，并在目标事件循环停止前释放最后 owner
+- callback 只有在确实是 co-owner 且明确取消、释放和循环引用处理时才能捕获强 shared owner；其他观察使用 QPointer 或匹配的 weak pointer
+- 公共 ABI 默认不暴露 owning 智能指针；无法跨 ABI 转移时使用 parent、opaque handle、显式 destroy API 或边界内销毁
+- `QPluginLoader::instance()` 是借用对象；不得删除或建立第二控制块，生命周期必须绑定 loader 的加载状态
+- QML 必须区分 C++/JavaScript ownership、QObject parent 和 QQuickItem parentItem；`Q_INVOKABLE`/slot 返回 QObject 与 property getter 的默认 ownership 规则不同
+
 关于 `QByteArrayView`，你必须遵守以下规则：
 - 它只适合 Borrow-only 二进制入口
 - 参数必须按值传递

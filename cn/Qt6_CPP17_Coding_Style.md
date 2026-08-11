@@ -418,23 +418,19 @@ Foo::Foo(int a, int b)
 | 字符串字面量 | `QStringLiteral("hello")` 或 `u"hello"_qs` | `QString("hello")` |
 | 线程耗时 | `QtConcurrent::run(&Worker::doWork)` | 手动 `new Thread` |
 | QObject 派生语义 | 指针语义：仅用指针/引用传递与存储 | `QVector<Foo *> foos;` | `QVector<Foo> foos;` |
-| 内存管理 | 父子树（优先）/ `deleteLater()` / RAII | 裸 `new` + 手动 `delete` |
+| 内存管理 | 值语义/RAII、parent tree、确定安全点直接析构、`deleteLater()` | 无明确 owner、重复接管、错线程销毁 |
 
-- 对于智能指针，优先使用Qt自带的智能指针（`QScopedPointer`、`QSharedPointer`、`QWeakPointer`、`QPointer`）
-- **QObject 生命周期（例外规则）**：
-  - 默认：仍然**禁止裸 `new`**。
-  - 例外：`QObject` 派生对象允许裸 `new`，但释放必须满足其一：
-    - ✅ **父子对象树（优先）**：`new T(parent)`，由父对象析构自动释放
-    - ✅ **事件循环安全析构**：无 parent 且涉及事件循环/异步/queued connection/跨线程场景时，用 `obj->deleteLater()`
-  - ❌ 禁止：对 `QObject` 派生对象手动 `delete`
-  - 非 `QObject`：使用 RAII 与智能指针（如 `std::unique_ptr`/`QScopedPointer`）管理资源
-  - 谨慎：对 `QObject` 使用 `std::unique_ptr`/`std::shared_ptr`/`QScopedPointer` 容易与 `deleteLater()` 或线程/事件循环时序冲突；需要防悬挂引用时优先 `QPointer`
+- **规则强度**：**必须/禁止**用于内存安全、生命周期、线程正确性和单一所有权；**应该/默认**用于 Qt 6、KDE、QML library 与现代 C++17 推荐；高于 Qt/KDE 最低要求的条款必须标记为**本项目提高约束**。
+- **基本原则**：必须先确定值语义、独占所有权、共享生命周期或借用观察，再选择指针类型；禁止按 Qt/std 类型家族预先选择。
+- 能使用值对象、栈对象或直接成员表达生命周期时，不应进行堆分配，也不应使用智能指针。
+- `T &` 表达非空借用，`T *` 表达可空借用；裸指针和引用默认不转移所有权。所有权转移必须通过类型、QObject parent、明确命名的接管接口或公共文档表达。
+- 自定义 deleter、销毁线程、API/ABI 边界及既有控制块家族都是所有权合同的一部分。
 
 ### 6.1 值语义/RAII 与 QObject（团队落地版）
 
 #### 结论（先看这个）
 - `QObject` 及其派生类**不应、也无法**“强制遵守值语义（可拷贝/可移动）”。它们是典型的 **identity type（身份对象）**：语义绑定到对象身份（地址）、对象树、元对象系统、信号槽连接与线程亲和性。
-- RAII 原则对 `QObject` **依然适用**，但落地方式应是：**把非 Qt 资源用 RAII 封装在成员里**；`QObject` 自身释放遵循 **parent ownership / `deleteLater()`**。把整个 `QObject` 当成可拷贝/可移动的“值对象”是误区。
+- RAII 原则对 `QObject` **依然适用**，但落地方式应是：**把非 Qt 资源用 RAII 封装在成员里**；`QObject` 自身释放遵循 **parent ownership / 确定安全点直接析构 / `deleteLater()`**。把整个 `QObject` 当成可拷贝/可移动的“值对象”是误区。
 - 团队执行建议：把“值语义/RAII”规则拆成两套并明确适用范围：① 一般 C++ 类型（非 `QObject`）——优先值语义 + RAII；② `QObject` 派生类——指针语义 + Qt 生命周期模型。
 
 #### 为什么 `QObject` 不适用值语义（按维度解释）
@@ -450,46 +446,88 @@ Foo::Foo(int a, int b)
 
 **A. 对一般 C++ 类型（非 `QObject`）适用的值语义/RAII**
 - **必须**：资源由对象生命周期管理（RAII）；避免裸 `new`/`delete`（见本规范第 0/6 章）。
-- **应该**：优先值语义（可拷贝或可移动）与按值容器；独占资源类型应“可移动但不可拷贝”；共享资源才考虑 `std::shared_ptr`/`QSharedPointer`。
+- **应该**：优先值语义（可拷贝或可移动）与按值容器；独占资源类型应“可移动但不可拷贝”。只有多个 owner 确实需要独立延长生命周期时，才允许 shared ownership。
+- **默认**：新通用 C++17 代码的独占所有权使用 `std::unique_ptr`，创建时优先 `std::make_unique`。
+- **可保留**：Qt/KDE PIMPL、Qt cleanup policy、稳定 ABI 或既有正确代码可以保留 `QScopedPointer`；不得仅为统一风格迁移。
+- **必须**：PIMPL 指向不完整类型时，持有类析构函数在实现文件中、私有类型完整的位置定义。
+- **必须**：callback 只有在合同上确实是 co-owner，并明确取消、释放和循环引用处理时才可持有 shared pointer。
+- **默认**：纯 C++ 或标准库边界使用配套的 `std::shared_ptr`/`std::weak_ptr`；封闭 Qt 局部实现可以使用配套的 `QSharedPointer`/`QWeakPointer`。
+- **应该**：默认 deleter 优先使用 `std::make_shared` 或 `QSharedPointer::create`；需要自定义 deleter 时不得使用这两个创建接口。
+- **必须**：通过基类智能指针拥有派生对象时，基类必须有可用虚析构函数，或使用能正确销毁实际类型的 deleter。
+- **必须**：`QSharedDataPointer` 提供隐式写时分离；`QExplicitlySharedDataPointer` 仅在持有者显式调用 `detach()` 后写时分离。二者都表达 shared-data 值语义，不表达对象生命周期 shared ownership。
 - **禁止**：用裸指针表达所有权；API 通过“返回裸指针 + 口头约定”隐式转移所有权。
 
 **B. `QObject` 派生类（特例：指针语义 + Qt 生命周期模型）**
-- **必须**：`QObject` 派生类**禁止拷贝/移动**，并在类内显式声明以获得清晰的编译期诊断：Qt6 可用时优先 `Q_DISABLE_COPY_MOVE(Class)`；若项目 Qt 版本没有该宏，才使用 `Q_DISABLE_COPY(Class)` 并显式 `Class(Class &&) = delete; Class &operator=(Class &&) = delete;`。
+- **必须**：`QObject` 派生类采用身份语义，禁止拷贝和移动。
 - **禁止**：按值传参/按值返回 `QObject` 派生类型；禁止将 `QObject` 派生类型按值存入 `std::vector`/`QVector`/`QList` 等需要移动/拷贝的容器。
+- **本项目提高约束**：每个 `QObject` 派生类在类内显式使用 `Q_DISABLE_COPY_MOVE(Class)`，以获得类级编译期诊断并明确该合同；这是本项目门禁，不是 Qt/KDE 项目的普遍硬性要求。
 - **必须**：需要 `moveToThread()` 的 `QObject` **禁止设置 parent**；禁止构造跨线程 parent/child 关系（parent/child 必须在同一线程）。
-- **必须**：所有权二选一且可追溯：
+- **必须**：所有权策略唯一且可追溯：
   - **parent ownership**：`new T(parent)`，由 parent 析构释放；
-  - **显式所有权**：明确唯一 owner（通常是某个 `QObject`/manager），释放用 `deleteLater()` 或在所属线程安全删除（见下方跨线程示例）。
-- **禁止**：对 `QObject` 派生对象手动 `delete`（已在第 6 章声明）。
-- **应该**：以下场景优先使用 `deleteLater()`：对象涉及事件循环/异步回调/queued connection/计时器/网络等；销毁请求来自非所属线程；或正在其 slot/event 处理过程中需要自杀式销毁。并确保对象所属线程有可处理 deferred delete 的事件循环。
+  - **显式所有权**：明确唯一 owner，再按下文选择确定安全点直接析构或 `deleteLater()`。
+- **本项目提高约束**：禁止同一 `QObject` 同时设置 parent 并由 owning 智能指针管理。
+- **允许**：直接 QObject 成员使用包含对象作为 parent，例如 `QTimer m_timer{this}`；这不属于智能指针重复拥有。
 - **应该**：当对象可能被异步销毁（parent 析构、`deleteLater`、跨线程）时，持有方用 `QPointer<T>` 等弱引用方式避免悬挂指针；跨异步边界避免缓存裸指针。
 - **应该**：当子 `QObject` 生命周期与 owner 完全一致时，优先使用“直接成员 + parent”（如 `QTimer m_timer{this};`）而不是堆分配；这不是值语义，仍禁止 copy/move/按值容器。
 - **应该**：创建型 API 用 `QObject *parent` 参数表达所有权；返回值通常用裸指针表达“非 owning”（由 parent/owner 管理），并在函数注释中写清生命周期。
 - **应该**：默认约定：裸指针/引用参数与返回值表达“借用（non-owning）”；一旦发生所有权转移，必须通过设置 parent、明确命名（如 `takeOwnership...`）、或在注释中显式说明。
-- **可选（需理由）**：使用 `std::unique_ptr`/`QScopedPointer` 拥有 `QObject` 仅在**不使用 `deleteLater()`、不跨线程、析构线程与对象 thread affinity 一致**时允许；若必须延迟删除，必须使用自定义 deleter 调用 `deleteLater()` 并确保事件循环存在。
-- **可选（强约束）**：共享所有权通常不适用于 `QObject`；如确实需要，**禁止设置 parent**，并使用带自定义 deleter（`deleteLater`）的 `QSharedPointer`/`std::shared_ptr`，同时对外优先暴露 `QPointer`/`QWeakPointer`。
+- `QPointer` 仅用于成员和延迟任务捕获；普通 API 参数仍使用 `T *` 或 `T &`。
 
-#### 6.1.1 QIODevice 特别说明（Qt I/O 设备对象）
+#### 6.1.1 控制块、弱引用与 QObject 销毁路径
+
+**控制块、weak pointer 与并发**
+
+- 同一对象只能存在一种有效 owning 策略；同一共享对象只能属于一个 shared control block，Qt/std 混用也不得例外。
+- 禁止从已经被管理对象的裸指针、`get()`、`data()`、借用 API 返回值或 `this` 重新构造 owner。
+- 对象需要获取自身强引用时，只能使用匹配家族的 `std::enable_shared_from_this` 或 `QEnableSharedFromThis`。
+- 后续强引用只能通过复制/移动既有 owner、保留控制块的 cast/aliasing 接口，或从匹配 weak pointer 提升。
+- 无异常 C++17 代码从 weak pointer 提升时使用 `std::weak_ptr::lock()` 或 `QWeakPointer::toStrongRef()`。
+- `release()`、`take()` 等解除所有权操作只能立即交给明确接管方；shared ownership cycle 必须由 weak pointer 打断。
+- 引用计数安全不代表 pointee 线程安全；同一个 shared-pointer 变量的并发读写也必须同步。
+
+**QObject 的直接析构与 shared ownership**
+
+- 删除“所有 QObject 一律禁止直接删除”的绝对规则。QObject 优先使用 parent tree；无法使用 parent 时，必须有明确且唯一的 owner 和销毁路径。
+- 只有同时满足以下条件，才允许直接析构或使用默认 deleter：对象无 parent；当前线程是 affinity thread；对象未正在处理事件或 callback；异步工作、计时器、I/O 和外部访问已经停止；销毁顺序确定。
+- 事件循环、信号槽或计时器的历史使用本身不构成永久禁令；决定因素是实际销毁点是否满足同步安全条件。
+- `std::unique_ptr`/`QScopedPointer` 只允许管理满足同步销毁条件的 QObject。不能证明条件时，必须使用 `deleteLater()` 或调用 `deleteLater()` 的自定义 deleter。
+- `deleteLater()` 可以从其他线程安全调用，但实际删除由对象所属线程的事件循环处理。
+- QPointer 的判空与解引用必须在对象所属线程完成；两者之间不得跨越可能触发重入、信号、事件处理或未知 callback 的调用。跨线程投递命令后，必须在目标线程重新检查 QPointer。
+- 普通 API 参数不使用 QPointer；不得使用 QWeakPointer 观察普通 parent-owned QObject。
+
+**shared-owned QObject（本项目提高约束）**
+
+- QObject 默认禁止 shared ownership；优先使用 parent tree、明确单一 owner 或 `deleteLater()` 生命周期。
+- 共享所有权仅作为受控例外：对象无 parent、确有多个独立 owner、只使用一个控制块家族、所有 owner/observer 来源可追溯。
+- **本项目提高约束**：所有 shared-owned QObject 一律使用调用 `deleteLater()` 的自定义 deleter，不允许默认 deleter。
+- 最后一个强 owner 必须在对象所属线程的事件循环停止前释放，并保证 `DeferredDelete` 有机会被处理。
+- 主事件循环停止后调用 `deleteLater()`，对象不会再被该事件循环删除，可能形成永久泄漏。
+- worker QObject 若依赖线程结束完成 deferred delete，最后一个 owner 必须在线程结束前释放，并通过 `destroyed()` 或等价关闭证据确认实际析构。
+- 无法保证事件循环存活、最终释放时机和实际析构完成时，禁止对该 QObject 使用 shared ownership。
+- shared-owned QObject 需要临时延长生命周期时使用匹配 weak pointer 提升；只检测外部 QObject 是否仍存在时使用 QPointer。
+- shared pointer、weak pointer 和 QPointer 都不提供 QObject 本身的线程安全。
+
+#### 6.1.2 QIODevice 特别说明（Qt I/O 设备对象）
 
 > 适用范围：任何继承自 `QIODevice` 的类型（包含你们自定义派生类）。`QIODevice` 本身就是 `QObject` 派生，因此继续适用上面的 `QObject` 特例；本小节仅补充“为什么更要谨慎”与“工程落地规则”。
 
 - **语义定位**：`QIODevice` 不是“数据容器”，而是**带状态与回调的 I/O 端点**（打开/关闭、缓冲区、异步通知信号等），强依赖对象身份与事件循环；因此**禁止值语义（copy/move/按值容器）**。
 - **生命周期策略（比一般 QObject 更偏向 `deleteLater()`）**：
-  - **应该**：只要设备参与异步通知（例如 `readyRead`/`bytesWritten`/错误信号、socket notifier、queued connection、定时器驱动读写），销毁优先 `deleteLater()`，避免待处理事件/queued slot 触发 UAF。
+  - **应该**：若销毁时仍有异步通知（例如 `readyRead`/`bytesWritten`/错误信号、socket notifier、queued connection、定时器驱动读写），或无法证明待处理事件与 callback 已清空，优先 `deleteLater()`，避免 UAF。
   - **应该**：在调度销毁前先 `close()`（如适用）以尽快停止 I/O 与回调；并避免在析构顺序不清晰时把 device 指针泄露到长生命周期对象。
 - **栈对象边界**：
-  - **可选**：`QFile` 等在“纯同步、指针不外泄、无异步连接”的函数内可用栈对象；一旦连接信号或把 `QIODevice*` 交给异步逻辑/跨作用域保存，应改为 parent/显式 owner + `deleteLater()`。
+  - **可选**：`QFile` 等在实际销毁点满足同步安全条件、指针不外泄的函数内可用栈对象。历史上连接过信号本身不构成永久禁令；若指针跨异步/作用域边界，或销毁时仍有未完成回调，应改为 parent/显式 owner，并按实际销毁点选择 `deleteLater()`。
 - **owning 智能指针（强化版）**：
   - **禁止**：除满足“纯同步场景”外，禁止使用 owning 智能指针（`std::unique_ptr`/`QScopedPointer`/`std::shared_ptr`/`QSharedPointer`）以**默认 deleter**管理 `QIODevice` 及派生类。
   - **纯同步场景（必须全部满足）**：
     1. 单线程同步使用，不 `moveToThread()`
-    2. 不依赖 `readyRead`/`bytesWritten` 等异步信号/回调，不与长生命周期对象建立连接
+    2. 销毁时没有活动的 `readyRead`/`bytesWritten` 等异步通知、待处理 callback 或长生命周期连接
     3. 不将 `QIODevice *`/引用外泄（不保存、不跨异步边界、不交给异步 API）
     4. 不调用 `deleteLater()`，并且期望离开作用域立即析构
-  - **可选（受控例外）**：如必须用智能指针样式表达所有权且对象参与事件循环，允许使用“自定义 deleter 调 `deleteLater()`”的智能指针（例如 `QSharedPointer<T>(new T, &QObject::deleteLater)`），并**禁止设置 parent**，且必须确保对象所属线程事件循环存在。
+  - **本项目提高约束**：任何 shared-owned `QIODevice` 必须使用调用 `deleteLater()` 的自定义 deleter，禁止使用默认 deleter；并确保最后一个 owner 在目标事件循环停止前释放。
 - **线程与亲和性**：
   - **必须**：设备对象只在其 thread affinity 所属线程使用；跨线程只用信号/queued connection 交互。
-  - **必须**：需要 `moveToThread()` 的设备对象**不得设置 parent**；销毁必须 queued 到其线程执行 `deleteLater()`。
+  - **必须**：需要 `moveToThread()` 的设备对象**不得设置 parent**。非 affinity thread 发起销毁时必须调用线程安全的 `deleteLater()`；已在 affinity thread 时，只有满足上文同步安全条件才允许立即析构。
 - **API 所有权表达（建议统一成团队习惯）**：
   - **应该**：把“使用某个设备”作为依赖注入：形参用 `QIODevice *device`/`QIODevice &device` 表达借用；调用方负责确保生命周期覆盖使用期。
   - **必须**：如函数/对象需要“接管设备生命周期”，必须通过 `QObject *parent`（或明确 owner）表达所有权归属；owning 智能指针策略见上文“owning 智能指针（强化版）”。
@@ -501,7 +539,7 @@ Foo::Foo(int a, int b)
 
 #### 典型示例（Qt6 + C++17）
 
-**❶ 错误示例：把 `QObject` 当值类型 / 把 `deleteLater()` 与 owning 智能指针混用**
+**❶ 错误示例：把 `QObject` 当值类型 / 在默认 deleter owner 上调用 `deleteLater()`**
 ```cpp
 #include <QObject>
 #include <QVector>
@@ -530,7 +568,7 @@ public:
 
     void scheduleDelete()
     {
-        m_widget->deleteLater(); // ❌ deleteLater 可能先于 unique_ptr 析构发生 → 悬挂/二次 delete
+        m_widget->deleteLater(); // ❌ 对象可能先被 deleteLater 删除，随后 unique_ptr 默认 deleter 再次删除
     }
 
 private:
@@ -580,7 +618,7 @@ private:
 };
 ```
 
-**❸ 跨线程示例：线程亲和性与销毁策略（禁止跨线程 delete，使用 queued + deleteLater）**
+**❸ 跨线程示例：线程亲和性与销毁策略（不跨线程直接析构，使用 queued + deleteLater）**
 ```cpp
 #include <QObject>
 #include <QThread>
@@ -857,7 +895,10 @@ clang-tidy 只负责检查词法命名。`PublicMemberPrefix: ''` 不授权任�
 - [ ] QStringLiteral / u""_qs
 - [ ] Q_OBJECT 项目门禁：范围内每个 QObject 派生类都包含 `Q_OBJECT`
 - [ ] Q_OBJECT 技术例外已正式记录；moc/AUTOMOC、编译和链接验证通过
-- [ ] `QObject`：禁止 copy/move/按值容器；优先 `Q_DISABLE_COPY_MOVE`；用父子树/`deleteLater()`，禁止手动 `delete`；非 `QObject` 用 `std::unique_ptr`/RAII
+- [ ] `QObject`：禁止 copy/move/按值传递/按值容器
+- [ ] 本项目门禁：每个 `QObject` 派生类显式使用 `Q_DISABLE_COPY_MOVE(Class)`
+- [ ] QObject ownership、direct-delete、`deleteLater()`、shared-owned QObject、worker shutdown 和 QPointer 规则已检查
+- [ ] 非 `QObject` 独占所有权默认使用 `std::unique_ptr`
 - [ ] 线程耗时任务用 QtConcurrent
 - [ ] 无异常：不新增 `throw`/`try`/`catch`；可能失败的 API 明确失败表达，并用 `[[nodiscard]]` 防忽略
 - [ ] 信号槽：统一使用 `Q_SIGNALS:` / `Q_SLOTS` / `Q_EMIT`；lambda/functor connect 必须带 context；跨线程显式 `Qt::QueuedConnection`；queued 参数类型已做元类型注册
@@ -866,7 +907,7 @@ clang-tidy 只负责检查词法命名。`PublicMemberPrefix: ''` 不授权任�
 
 ---
 
-**文档包版本**：v1.1.0
-**最后更新**：2026-07-25
+**文档包版本**：v1.2.0
+**最后更新**：2026-08-11
 
 ---

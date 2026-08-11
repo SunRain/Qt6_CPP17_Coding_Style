@@ -328,6 +328,9 @@ connect(worker, &Worker::finished, worker, &QObject::deleteLater);
 `deleteLater()`”。具体生命周期必须遵循总纲，并由可证明的 parent、owner、线程亲和性、
 事件处理状态和事件循环条件决定。
 
+对 shared-owned QObject，还应记录自定义 `deleteLater()` deleter、最后一个 owner 的释放时机、
+目标事件循环停止顺序，以及 `destroyed()` 或等价的实际析构证据。
+
 #### 6.2.4 QML/C++ 数据边界
 
 对 `QVariantMap`、`QVariantList`、model role、role name、QML 使用的字符串字段、restore
@@ -612,6 +615,6 @@ TODO/FIXME 必须包含真实的 bug ID、owner 或其他可追踪上下文之�
 
 ---
 
-**文档包版本**：v1.1.0
+**文档包版本**：v1.2.0
 
-**最后更新**：2026-07-25
+**最后更新**：2026-08-11

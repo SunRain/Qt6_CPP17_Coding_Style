@@ -555,7 +555,67 @@ The most practical implementation is a compile-only test target under `tests/` t
 
 ---
 
-## 7) Code Review Checklist
+## 7) Pointers, Smart Pointers, and Boundary Ownership
+
+> This section defines ownership at Public API, callback, plugin, and QML/C++ boundaries. General C++ lifetime, control-block, and QObject destruction rules are owned by `Qt6_CPP17_Coding_Style.md`.
+
+### 7.1 Borrowed and owning parameters
+
+- `T &` means a non-null borrow and `T *` means a nullable borrow; neither transfers ownership by default.
+- Do not use `QPointer` as an ordinary API parameter; use it for members and deferred-task captures.
+- Do not store borrowed pointers, references, or views in members, caches, queues, or deferred closures; convert to owning immediately when use crosses calls or async boundaries.
+- Internal or explicitly ABI-safe C++ APIs may use `std::unique_ptr` for exclusive transfer, shared pointers for real shared lifetime, and pointers/references for borrowing.
+- Do not choose a shared pointer merely because an interface is a callback.
+
+### 7.2 Non-QObject owning APIs
+
+- When `std::unique_ptr<T>` is passed or returned by value, document the direction of ownership transfer.
+- `std::shared_ptr<T>`/`QSharedPointer<T>` express a real shared lifetime only. A callback may hold a strong owner only when its contract makes it a co-owner and defines cancellation, release, and cycle handling.
+- When the original control block cannot be reused across a Qt/std boundary, do not create a second owner from a raw pointer; retain the original owner and use a borrowed API or destroy inside the boundary.
+- `release()` and `take()` may only hand ownership immediately to a named receiver.
+
+### 7.3 QObject parameters, callbacks, and threads
+
+- A parent-owned QObject must not also be managed by an owning smart pointer.
+- QPointer is a non-owning guarded pointer. It does not extend lifetime, provide a lock, provide synchronization, or authorize cross-thread access.
+- Check and dereference QPointer in the object's affinity thread without crossing reentrancy, signal, event, or unknown-callback boundaries.
+- Queue cross-thread commands to the object's thread and re-check QPointer when the command executes.
+- All QObject method calls and state access must obey thread affinity.
+- Qt signals/slots, timers, and async callbacks must provide a context so the connection becomes invalid when the context is destroyed.
+- Prefer QPointer when a callback observes an external QObject. Capture a strong shared owner only when the callback is a co-owner, and prevent cycles with a weak pointer, explicit disconnection, or an equivalent structure.
+
+### 7.4 Public ABI ownership
+
+- **Project-specific stricter constraint**: public shared-library and plugin ABIs do not expose owning smart pointers by default.
+- Exceptions require an explicit assessment of standard-library ABI, runtime, allocator, deleter, and cross-module destruction.
+- Ownership that cannot safely cross an ABI boundary must use QObject parent ownership, an opaque handle, an explicit `destroy` API, or destruction within the same ABI boundary.
+- Public `T *`/`T &` parameters and returns must document borrowing, nullability, invalidation, and thread requirements.
+
+### 7.5 Plugin boundary
+
+- `QPluginLoader::instance()` returns a borrowed QObject. The caller must not delete it, put it into a new owning smart pointer, or create a second control block.
+- Destroying a `QPluginLoader` does not itself delete the plugin root object; the plugin-loading mechanism deletes the root object immediately before the plugin is actually unloaded.
+- Plugin-object use must be bounded by the plugin manager's loaded state; successful `unload()` is the explicit invalidation boundary.
+- QPointer may guard a plugin root object across scopes, but it does not replace plugin loaded-state management.
+- A shared pointer can extend a control-block lifetime but cannot keep plugin code, vtables, or the dynamic library loaded.
+
+### 7.6 QML / Meta-Object ownership
+
+- QML-visible interfaces must not use `std::shared_ptr`, `QSharedPointer`, or other owning smart pointers as visible ownership APIs.
+- When C++ creates and continues to own a QObject exposed to QML, establish `QObject::parent()` or call `QQmlEngine::setObjectOwnership()` with `CppOwnership`.
+- JavaScript-created objects default to `JavaScriptOwnership`; ordinary C++-created objects default to `CppOwnership`.
+- An unparented QObject returned from a `Q_INVOKABLE` or slot may default to `JavaScriptOwnership`.
+- A QObject returned by a `Q_PROPERTY` getter does not receive that `Q_INVOKABLE`/slot default ownership transfer; its lifetime remains governed by the existing C++ owner, parent, or engine contract.
+- The root object returned by `QQmlComponent::create()`/`beginCreate()` is normally the C++ caller's responsibility; establish one owner immediately.
+- A JavaScript-owned object that still has a `QObject::parent()` is not deleted by QML garbage collection; this is not an immediately active second deleter.
+- **Project-specific stricter constraint**: do not rely on implicit switching among JavaScript ownership, parent removal, and C++ ownership; at every point exactly one mechanism must be authorized to delete the object.
+- `QQuickItem::parentItem()` is the visual parent and is not `QObject::parent()`; do not infer QObject ownership from it.
+- An object created and owned by QML must not be handed to a C++ owning smart pointer; C++ retains only a borrow or QPointer.
+- QML singletons, context properties, and cross-engine objects must document engine, thread, and destruction order.
+
+---
+
+## 8) Code Review Checklist
 
 - Is the parameter semantically Borrow or Owning, and does the implementation match?
 - Does the Borrow entry use a view passed by value, or was it accidentally written as `const& view`?
@@ -564,6 +624,18 @@ The most practical implementation is a compile-only test target under `tests/` t
 - In Owning scenarios, is there a `QString` (or matching implicitly shared type) entry point to benefit from implicit sharing? Is the view entry point only a convenience layer that converts to owning immediately?
 - Can the public-header overload set introduce ambiguity or implicit-conversion traps? Have representative call sites been compile-checked?
 - Will a `QObject` interface become ambiguous in modern `connect()` syntax because of overloads? Was that resolved through renaming or explicit `qOverload`?
+- Do `T &`/`T *` parameters and returns really express non-owning borrows? Are nullability, invalidation, and thread requirements documented?
+- Could any code reconstruct an owner from `get()`, `data()`, `this`, or a borrowed API result?
+- Is there one shared control block? Are matching `lock()`/`toStrongRef()`, `shared_from_this()`, and Qt cast/aliasing operations used where appropriate?
+- Are `release()`/`take()` handed immediately to a named receiver? Are shared-ownership cycles broken with weak pointers?
+- Are concurrent access to a shared-pointer variable and mutable pointee state synchronized separately?
+- Is any QObject managed by both a parent and an owning smart pointer? Is the safe direct-destruction point and thread affinity proven?
+- Is QPointer limited to members/deferred captures and re-checked in the target thread?
+- Does every callback have a context? Is any strong owner a real co-owner, without a reference cycle?
+- Were runtime, allocator, deleter, and cross-module destruction assessed at ABI boundaries?
+- Is plugin `instance()` use bounded by loader state, with QPointer not replacing unload tracking?
+- Are the ownership rules for QObject returned from `Q_INVOKABLE`/slot and property getters distinct?
+- Do QML JavaScript ownership, QObject parent, C++ ownership, and `parentItem()` avoid multiple deletion paths?
 - If the function is only pure parsing / comparison and the project style allows it, should it be marked `noexcept`? (enhancement, not a main rule here)
 - If the public API returns a view, are its lifetime and invalidation conditions clearly documented in the signature / docs, and should `[[nodiscard]]` be considered? (enhancement, project-specific)
 

@@ -93,7 +93,7 @@ private:
 | `Q_EMIT` | 函数体内发射信号处 | 统一替代裸 `emit` |
 | `Q_DISABLE_COPY` | `private:` 开头 | 仅禁用复制 |
 | `Q_DISABLE_MOVE` | `private:` 开头 | 仅禁用移动 |
-| `Q_DISABLE_COPY_MOVE` | `private:` 开头 | QObject 派生类优先使用 |
+| `Q_DISABLE_COPY_MOVE` | `private:` 开头 | 本项目 QObject 派生类门禁；高于 Qt/KDE 普遍要求 |
 | `Q_DECLARE_PRIVATE` | Public API 类的 `private:` | 从公共类访问 `d_ptr` |
 | `Q_DECLARE_PUBLIC` | `FooPrivate` 类体开头、`public:` 之前 | 从私有实现访问 `q_ptr` |
 | `Q_D` / `Q_Q` | 函数体开头附近 | d-pointer 函数体内部使用 |
@@ -139,7 +139,7 @@ public:
 
 ## 5. `Q_DISABLE_COPY` / `Q_DISABLE_COPY_MOVE` 规范
 
-推荐：
+本项目写法：
 
 ```cpp
 class RuntimeCore : public QObject
@@ -158,16 +158,9 @@ private:
 
 要求：
 
-- QObject 派生类默认禁止复制和移动。
-- Qt6 项目优先使用 `Q_DISABLE_COPY_MOVE(Class)`。
-- 若项目 Qt 版本没有 `Q_DISABLE_COPY_MOVE`，使用：
-
-```cpp
-private:
-    Q_DISABLE_COPY(ClassName)
-    ClassName(ClassName &&) = delete;
-    ClassName &operator=(ClassName &&) = delete;
-```
+- **必须**：`QObject` 派生类采用身份语义，禁止复制和移动。这是 Qt 生命周期模型的通用要求。
+- **本项目提高约束**：每个 `QObject` 派生类显式使用 `Q_DISABLE_COPY_MOVE(Class)`，以获得类级编译期诊断并明确该合同；这是本项目门禁，不是 Qt/KDE 项目的普遍硬性要求。
+- **范围**：本规范以 Qt 6 为基线，不在本节定义旧 Qt 版本 fallback；明确兼容 Qt 5 的项目应在其兼容性规范中单独定义。
 
 - 不推荐放在 `public:`，除非项目已有明确一致约定。
 - 放在 `private:` 开头，位于 private 成员变量之前。

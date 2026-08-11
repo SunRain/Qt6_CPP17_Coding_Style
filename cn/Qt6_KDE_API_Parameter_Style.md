@@ -552,7 +552,67 @@ connect(sender, &Sender::nameChanged,
 
 ---
 
-## 7) Code Review Checklist（落地检查）
+## 7) 指针、智能指针与边界所有权
+
+> 本节补充 Public API、callback、插件和 QML/C++ 边界的所有权表达；C++ 总体生命周期、控制块和 QObject 销毁规则以 `Qt6_CPP17_Coding_Style.md` 为准。
+
+### 7.1 借用与 owning 参数
+
+- `T &` 表达非空借用，`T *` 表达可空借用；二者默认不转移所有权。
+- 普通 API 参数不使用 `QPointer`；QPointer 用于成员和延迟任务捕获。
+- 借用指针、引用和 view 不得保存为成员、缓存、队列项或延迟闭包捕获值；需要跨调用或异步使用时必须立即 owning 化。
+- 内部或 ABI 已明确允许的 C++ API 使用 `std::unique_ptr` 表达独占转移，使用 shared pointer 表达真实共享，使用指针或引用表达借用。
+- 不得仅因为接口是 callback 就选择 shared pointer。
+
+### 7.2 非 QObject owning API
+
+- `std::unique_ptr<T>` 作为按值参数或返回值时，必须明确所有权转移方向。
+- `std::shared_ptr<T>`/`QSharedPointer<T>` 只能表达真实共享生命周期；callback 只有在合同上确实是 co-owner，并明确取消、释放和循环引用处理时才可持有强 owner。
+- 无法在 Qt/std 边界复用原控制块时，不得从裸指针创建第二个 owner；应保留原 owner，并使用借用 API 或边界内完成销毁。
+- `release()`、`take()` 等解除所有权操作只能立即交给明确接管方。
+
+### 7.3 QObject 参数、回调和线程
+
+- parent-owned QObject 不得再由 owning 智能指针管理。
+- QPointer 是非 owning guarded pointer，不延长生命周期、不提供锁、不提供线程同步，也不授权跨线程访问。
+- QPointer 的判空和解引用必须在对象 affinity thread 内完成，两者之间不得跨越重入、信号、事件处理或未知 callback。
+- 跨线程访问时向对象所属线程投递命令，并在命令执行时重新检查 QPointer。
+- QObject 的所有方法调用和状态访问必须遵守 thread affinity。
+- Qt 信号槽、计时器和异步 callback 必须提供 context，使连接在 context 析构时自动失效。
+- callback 观察外部 QObject 时优先捕获 QPointer；只有 callback 本身确为 co-owner 时才捕获强 shared owner，并必须通过 weak pointer、显式断连或等价结构防止循环引用。
+
+### 7.4 Public ABI ownership
+
+- **本项目提高约束**：公共共享库或插件 ABI 默认不暴露 owning 智能指针。
+- 例外必须完成标准库 ABI、运行库、allocator、deleter 和跨模块销毁评估。
+- 无法安全跨越 ABI 的所有权应使用 QObject parent、opaque handle、显式 `destroy` API 或在同一 ABI 边界内完成销毁。
+- `T *`/`T &` 作为公共参数或返回值时必须在文档中写明借用、非空性、失效条件和线程要求。
+
+### 7.5 插件边界
+
+- `QPluginLoader::instance()` 返回的 QObject 是借用对象；调用方不得删除、设置新的 owning 智能指针或建立第二个控制块。
+- `QPluginLoader` 析构本身不会删除插件根对象；根对象在插件真正卸载前由插件加载机制自动删除。
+- 插件对象使用期必须绑定到插件管理器的加载状态；成功 `unload()` 是明确失效边界。
+- 跨作用域保存插件根对象或接口时可以使用 QPointer，但 QPointer 不能替代插件加载状态管理。
+- shared pointer 只能延长对象控制块生命周期，不能保证插件代码、虚表和动态库仍然加载。
+
+### 7.6 QML / Meta-Object ownership
+
+- QML 可见接口不使用 `std::shared_ptr`、`QSharedPointer` 或其他 owning 智能指针表达所有权。
+- C++ 创建并继续拥有的 QObject 暴露给 QML 时，应明确 `QObject::parent()`，或使用 `QQmlEngine::setObjectOwnership()` 设置 `CppOwnership`。
+- JavaScript 创建的对象默认是 `JavaScriptOwnership`；普通 C++ 创建对象默认是 `CppOwnership`。
+- 无 parent 的 `Q_INVOKABLE` 或 slot 返回 `QObject *` 时，返回对象默认可能转为 `JavaScriptOwnership`。
+- `Q_PROPERTY` getter 返回对象不发生上述 `Q_INVOKABLE`/slot 默认 ownership 转移；其生命周期仍由既有 C++ owner、parent 或 engine 合同决定。
+- `QQmlComponent::create()`/`beginCreate()` 返回的根对象默认由 C++ 调用方负责，调用方必须立即建立唯一 owner。
+- `JavaScriptOwnership` 对象只要仍有 `QObject::parent()`，QML GC 就不会删除；它不是立即生效的第二个 deleter。
+- **本项目提高约束**：不得依赖 JavaScript ownership、解除 parent 和 C++ owner 之间的隐式切换；任何时刻必须明确唯一有权完成删除的机制。
+- `QQuickItem::parentItem()` 是视觉父级，不等于 `QObject::parent()`，不得据此判断 QObject 所有权。
+- QML 创建并拥有的对象不得再交给 C++ owning 智能指针；C++ 只保留借用指针或 QPointer。
+- QML singleton、context property 和跨 engine 对象必须明确 engine、线程和对象之间的析构顺序。
+
+---
+
+## 8) Code Review Checklist（落地检查）
 
 - 该参数语义是 Borrow 还是 Owning？是否与实现一致？
 - Borrow 入口是否用 view 且按值传递？是否意外写成 `const& view`？
@@ -561,6 +621,18 @@ connect(sender, &Sender::nameChanged,
 - Owning 场景是否提供了 `QString`（或对应隐式共享类型）的入口以利用 implicit sharing？view 入口是否仅作为便捷入口并立即 owning 化？
 - public header 的重载集合是否可能引发二义性或隐式转换陷阱？是否对典型调用面做过编译检查？
 - `QObject` 接口在现代 `connect()` 语法下是否会因重载导致二义性？是否通过改名或 `qOverload` 明确选择？
+- `T &`/`T *` 是否确实表达非 owning 借用？非空性、失效条件和线程要求是否已记录？
+- 是否存在从 `get()`、`data()`、`this` 或借用 API 返回值重新构造 owner 的风险？
+- 是否保持单一 shared control block？是否使用匹配家族的 `lock()`/`toStrongRef()`、`shared_from_this()` 或 Qt cast/aliasing 接口？
+- `release()`/`take()` 是否立即交给明确接管方？shared ownership cycle 是否由 weak pointer 打断？
+- shared-pointer 变量的并发读写以及 pointee 的可变状态是否分别完成同步？
+- QObject 是否同时受 parent 与 owning 智能指针管理？direct-delete 安全点和 thread affinity 是否已证明？
+- QPointer 是否只用于成员/延迟捕获，并在目标线程重新判空？
+- callback 是否带 context？强 owner 是否确实是 co-owner，并且没有形成循环引用？
+- ABI 边界是否已评估 runtime、allocator、deleter 和跨模块销毁？
+- 插件 `instance()` 是否绑定 loader 状态？QPointer 是否没有替代 unload 状态管理？
+- `Q_INVOKABLE`/slot 返回 QObject 与 property getter 的 ownership 规则是否区分？
+- QML JavaScript ownership、QObject parent、C++ owner 和 `parentItem()` 是否没有形成多个删除路径？
 - 若函数本身只是纯解析/比较且项目风格允许，是否适合标注 `noexcept`？（增强项，非本文主规则）
 - 若 public API 返回 view，是否已在签名/文档中明确生命周期与失效条件；必要时是否考虑 `[[nodiscard]]`？（增强项，按项目约定）
 

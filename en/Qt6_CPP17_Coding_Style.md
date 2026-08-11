@@ -419,23 +419,19 @@ Foo::Foo(int a, int b)
 | String literals | Use `QStringLiteral("...")` or `u"..."_qs` | `QStringLiteral("hello")` | `QString("hello")` |
 | Heavy work | Prefer `QtConcurrent::run(&Worker::doWork)` | `QtConcurrent::run(&Worker::doWork)` | manual `new Thread` |
 | `QObject` semantics | Pointer semantics only (pass/store pointers/references) | `QVector<Foo *> foos;` | `QVector<Foo> foos;` |
-| Memory management | Parent-child (preferred) / `deleteLater()` / RAII | explicit and traceable ownership | raw `new` + manual `delete` |
+| Memory management | value semantics/RAII, parent tree, safe-point destruction, `deleteLater()` | unclear ownership, duplicate owners, wrong-thread destruction |
 
-- For smart pointers, prefer Qt-provided ones (`QScopedPointer`, `QSharedPointer`, `QWeakPointer`, `QPointer`)
-- **`QObject` lifetime (exception rules)**:
-  - Default: raw `new` is still **forbidden**.
-  - Exception: raw `new` is allowed for `QObject`-derived objects, but destruction must be one of:
-    - ✅ **Parent-child tree (preferred)**: `new T(parent)`, destroyed by the parent's destructor
-    - ✅ **Event-loop-safe destruction**: no parent and involves event loop / async / queued connections / cross-thread → use `obj->deleteLater()`
-  - ❌ Forbidden: manual `delete` for `QObject`-derived objects
-  - Non-`QObject`: manage resources with RAII and smart pointers (e.g., `std::unique_ptr` / `QScopedPointer`)
-  - Caution: using `std::unique_ptr` / `std::shared_ptr` / `QScopedPointer` for `QObject` can conflict with `deleteLater()` and thread/event-loop timing; prefer `QPointer` when you need dangling protection
+- **Rule strength**: **Required/Forbidden** applies to memory safety, lifetime, threading, and single ownership; **Should/Default** applies to Qt 6, KDE, QML-library, and modern C++17 recommendations; stricter project rules must be marked **Project-specific stricter constraint**.
+- **Basic principle**: decide value semantics, exclusive ownership, shared lifetime, or borrowed observation before choosing a pointer type; do not choose by Qt/std pointer family.
+- Do not heap-allocate or use smart pointers when a value, stack object, or direct member expresses the lifetime.
+- `T &` means a non-null borrow and `T *` means a nullable borrow; raw pointers and references do not transfer ownership by default. Express transfers through the type, QObject parent, an explicitly named takeover API, or public documentation.
+- A custom deleter, destruction thread, API/ABI boundary, and existing control-block family are all part of the ownership contract.
 
 ### 6.1 Value Semantics/RAII and QObject (Team-Ready Version)
 
 #### Conclusion (Read This First)
 - `QObject` and its derived types **should not, and cannot** be forced into value semantics (copyable/movable). They are typical **identity types**: semantics are bound to object identity (address), object tree, meta-object system, signal-slot connections, and thread affinity.
-- RAII still **applies** to `QObject`, but the practical pattern is: **wrap non-Qt resources with RAII as members**, while `QObject` itself follows **parent ownership / `deleteLater()`**. Treating a whole `QObject` as a copyable/movable "value object" is a misconception.
+- RAII still **applies** to `QObject`, but the practical pattern is: **wrap non-Qt resources with RAII as members**, while `QObject` itself follows **parent ownership / safe-point destruction / `deleteLater()`**. Treating a whole `QObject` as a copyable/movable "value object" is a misconception.
 - Team guidance: split "value semantics/RAII" into two clearly-scoped rule sets: (1) general C++ types (non-`QObject`) → prefer value semantics + RAII; (2) `QObject`-derived types → pointer semantics + Qt lifetime model.
 
 #### Why QObject Does Not Fit Value Semantics (By Dimension)
@@ -451,46 +447,88 @@ Foo::Foo(int a, int b)
 
 **A. Value semantics / RAII for general C++ types (non-`QObject`)**
 - **Required**: manage resources via RAII; avoid raw `new`/`delete` (see Chapters 0/6).
-- **Should**: prefer value semantics (copyable or movable) and by-value containers. Exclusive-ownership types should be movable-but-not-copyable. Consider `std::shared_ptr` / `QSharedPointer` only for truly shared ownership.
+- **Should**: prefer value semantics (copyable or movable) and by-value containers. Exclusive-ownership types should be movable-but-not-copyable. Allow shared ownership only when multiple owners truly need independent lifetime extension.
+- **Default**: new general C++17 code uses `std::unique_ptr`, preferably created with `std::make_unique`.
+- **May retain**: Qt/KDE PIMPL, Qt cleanup-policy, stable-ABI, and correct existing code may retain `QScopedPointer`; do not migrate only for style.
+- **Required**: when a PIMPL pointer names an incomplete type, define the owning class destructor in an implementation file where the private type is complete.
+- **Required**: a callback may hold a shared pointer only when the callback contract makes it a co-owner and documents cancellation, release, and cycle handling.
+- **Default**: use matching `std::shared_ptr`/`std::weak_ptr` at pure C++ or standard-library boundaries; closed Qt-local implementations may use matching `QSharedPointer`/`QWeakPointer`.
+- **Should**: with the default deleter, prefer `std::make_shared` or `QSharedPointer::create`; do not use either factory when a custom deleter is required.
+- **Required**: a base class owned through a smart pointer must have a usable virtual destructor, or the deleter must destroy the actual type correctly.
+- **Required**: `QSharedDataPointer` detaches implicitly on write, while `QExplicitlySharedDataPointer` detaches only after the holder explicitly calls `detach()`. Both express shared-data value semantics, not object-lifetime shared ownership.
 - **Forbidden**: using raw pointers to express ownership; transferring ownership implicitly via "return a raw pointer + verbal agreement".
 
 **B. `QObject`-derived types (special case: pointer semantics + Qt lifetime model)**
-- **Required**: `QObject`-derived types **must not be copyable/movable**, and the class should declare it explicitly for clear compile-time diagnostics. Prefer `Q_DISABLE_COPY_MOVE(Class)` when it is available in Qt6. If the project Qt baseline does not provide it, use `Q_DISABLE_COPY(Class)` and explicitly delete moves: `Class(Class &&) = delete; Class &operator=(Class &&) = delete;`.
+- **Required**: `QObject`-derived types have identity semantics and must not be copyable or movable.
 - **Forbidden**: pass/return `QObject`-derived types by value. Do not store `QObject`-derived types by value in containers that require move/copy such as `std::vector` / `QVector` / `QList`.
+- **Project-specific stricter constraint**: every `QObject`-derived class explicitly uses `Q_DISABLE_COPY_MOVE(Class)` in the class body to provide class-level compile-time diagnostics and make this contract explicit. This is a project gate, not a universal hard requirement of Qt/KDE projects.
 - **Required**: `QObject`s that need `moveToThread()` **must not have a parent**. Do not create cross-thread parent/child relationships (parent/child must be in the same thread).
-- **Required**: ownership must be one of the following and be traceable:
+- **Required**: ownership must be unique and traceable:
   - **parent ownership**: `new T(parent)`, destroyed by the parent
-  - **explicit ownership**: define a single owner (typically a `QObject`/manager); release via `deleteLater()` or safe deletion on the owning thread (see cross-thread example below)
-- **Forbidden**: manual `delete` for `QObject`-derived objects (declared in Chapter 6).
-- **Should**: prefer `deleteLater()` when the object participates in the event loop / async callbacks / queued connections / timers / networking; when destruction is requested from a non-owning thread; or when self-destruction is needed during slot/event handling. Ensure the object's thread has an event loop that can process deferred deletes.
+  - **explicit ownership**: define a single owner, then choose safe-point destruction or `deleteLater()` as described below
+- **Project-specific stricter constraint**: do not set a parent on a `QObject` that is also managed by an owning smart pointer.
+- **Allowed**: a direct QObject member may use its containing object as parent, for example `QTimer m_timer{this}`; this is not duplicate smart-pointer ownership.
 - **Should**: if an object may be destroyed asynchronously (parent destruction, `deleteLater`, cross-thread), use weak references like `QPointer<T>` to avoid dangling pointers; do not cache raw pointers across async boundaries.
 - **Should**: when a child `QObject` has exactly the same lifetime as its owner, prefer "direct member + parent" (e.g., `QTimer m_timer{this};`) over heap allocation. This is *not* value semantics; copy/move/by-value containers are still forbidden.
 - **Should**: creation APIs should use a `QObject *parent` parameter to express ownership. Return values are typically raw pointers to express "non-owning" (owned by parent/owner); document the lifetime in the API comment.
 - **Should**: default convention: raw pointer/reference parameters and return values are **borrowing (non-owning)**. If ownership is transferred, it must be explicit via setting a parent, naming (e.g., `takeOwnership...`), or documentation.
-- **Optional (with rationale)**: owning a `QObject` via `std::unique_ptr` / `QScopedPointer` is allowed only when **not using `deleteLater()`**, **not crossing threads**, and **the destructor runs on the object's owning thread**. If deferred deletion is required, use a custom deleter that calls `deleteLater()` and ensure an event loop exists.
-- **Optional (strict constraints)**: shared ownership is usually not suitable for `QObject`. If truly needed, **do not set a parent**, and use `QSharedPointer` / `std::shared_ptr` with a custom deleter (`deleteLater`). Prefer exposing `QPointer` / `QWeakPointer` externally.
+- `QPointer` is for members and deferred-task captures; ordinary API parameters remain `T *` or `T &`.
 
-#### 6.1.1 Notes on QIODevice (Qt I/O Device Objects)
+#### 6.1.1 Control Blocks, Weak References, and QObject Destruction
+
+**Control blocks, weak pointers, and concurrency**
+
+- An object may have only one effective owning strategy; a shared object may belong to only one control block, including across Qt/std families.
+- Never reconstruct an owner from a managed object's raw pointer, `get()`, `data()`, a borrowed API result, or `this`.
+- If an object needs a strong self-reference, use matching `std::enable_shared_from_this` or `QEnableSharedFromThis` only.
+- Obtain later strong references by copying/moving an existing owner, using a cast/aliasing operation that preserves the control block, or promoting a matching weak pointer.
+- In no-exception C++17 code, promote with `std::weak_ptr::lock()` or `QWeakPointer::toStrongRef()`.
+- `release()` and `take()` may only hand ownership immediately to a named receiver; break shared-ownership cycles with weak pointers.
+- Thread-safe reference counting does not make the pointee thread-safe; concurrent reads/writes of the same shared-pointer variable also require synchronization.
+
+**QObject direct destruction and shared ownership**
+
+- Remove the absolute rule that all QObject instances must never be directly deleted. Prefer the parent tree; without a parent, require one explicit owner and one destruction path.
+- Direct destruction or a default deleter is allowed only when all conditions hold: no parent; current thread is the affinity thread; no event or callback is being processed; async work, timers, I/O, and external access have stopped; and destruction order is known.
+- Historical use of an event loop, signal/slot, or timer is not a permanent ban; the actual destruction point determines whether synchronous destruction is safe.
+- `std::unique_ptr`/`QScopedPointer` may manage a QObject only under those synchronous conditions. If they cannot be proven, use `deleteLater()` or a custom deleter that calls it.
+- `deleteLater()` may be called safely from another thread, but deletion is performed by the object's thread event loop.
+- Check and dereference QPointer in the object's affinity thread without crossing reentrancy, signal, event, or unknown-callback boundaries. After queuing a cross-thread command, re-check QPointer in the target thread.
+- Do not use QPointer as an ordinary API parameter, and do not use QWeakPointer for an ordinary parent-owned QObject.
+
+**Shared-owned QObject (project-specific stricter constraint)**
+
+- QObject shared ownership is forbidden by project default; prefer the parent tree, one explicit owner, or a `deleteLater()` lifetime.
+- The controlled exception requires no parent, multiple independent owners, one control-block family, and traceable owner/observer sources.
+- **Project-specific stricter constraint**: every shared-owned QObject uses a custom deleter that calls `deleteLater()`; a default deleter is forbidden.
+- The last strong owner must be released before the object's thread event loop stops, and the event loop must have an opportunity to process `DeferredDelete`.
+- Calling `deleteLater()` after the main event loop stops means that event loop will not delete the object; a permanent leak may result.
+- If a worker QObject relies on thread shutdown to complete deferred deletion, release the last owner before thread shutdown and verify destruction with `destroyed()` or equivalent evidence.
+- If event-loop survival, final release timing, or actual destruction cannot be guaranteed, shared ownership of that QObject is forbidden.
+- Use a matching weak pointer for temporary lifetime extension; use QPointer only to observe whether an external QObject still exists.
+- Shared pointers, weak pointers, and QPointer do not make the QObject itself thread-safe.
+
+#### 6.1.2 Notes on QIODevice (Qt I/O Device Objects)
 
 > Scope: any type derived from `QIODevice` (including your own derived types). `QIODevice` itself is `QObject`-derived, so all `QObject` rules above still apply. This subsection adds why you must be extra careful, and practical engineering rules.
 
 - **Semantics**: `QIODevice` is not a "data container"; it is an **I/O endpoint with state and callbacks** (open/close, buffers, async notification signals, etc.), heavily dependent on identity and the event loop. Therefore, **value semantics are forbidden (copy/move/by-value containers)**.
 - **Lifetime strategy (more biased toward `deleteLater()` than general QObject)**:
-  - **Should**: if the device participates in async notifications (e.g., `readyRead` / `bytesWritten` / error signals, socket notifiers, queued connections, timer-driven I/O), prefer `deleteLater()` to avoid UAF from pending events/queued slots.
+  - **Should**: if async notifications remain active at destruction (for example, `readyRead` / `bytesWritten` / error signals, socket notifiers, queued connections, or timer-driven I/O), or pending events and callbacks cannot be proven drained, prefer `deleteLater()` to avoid UAF.
   - **Should**: call `close()` before scheduling destruction (when applicable) to stop I/O/callbacks sooner, and avoid leaking device pointers into long-lived objects when destruction order is unclear.
 - **Stack object boundary**:
-  - **Optional**: `QFile` and similar can be stack-allocated in functions that are purely synchronous, do not leak pointers, and do not establish async connections. Once you connect signals or hand out a `QIODevice*` to async logic / store it across scopes, switch to parent/explicit owner + `deleteLater()`.
+  - **Optional**: `QFile` and similar can be stack-allocated when their actual destruction point satisfies the synchronous-safety conditions and no pointer escapes. A historical signal connection is not a permanent prohibition; if a pointer crosses an async/scope boundary or callbacks remain in flight at destruction, use a parent or explicit owner and select `deleteLater()` from the actual destruction conditions.
 - **Owning smart pointers (strict version)**:
   - **Forbidden**: except for "pure synchronous scenarios", do not manage `QIODevice` and derived types with *default deleters* in owning smart pointers (`std::unique_ptr` / `QScopedPointer` / `std::shared_ptr` / `QSharedPointer`).
   - **Pure synchronous scenario (all must hold)**:
     1. Single-threaded synchronous use; no `moveToThread()`
-    2. No async signals/callbacks such as `readyRead` / `bytesWritten`; no connections to long-lived objects
+    2. At destruction, no active async notifications such as `readyRead` / `bytesWritten`, no pending callbacks, and no long-lived connections
     3. Do not leak `QIODevice*`/references (no storing, no async boundaries, do not pass into async APIs)
     4. Do not call `deleteLater()`; expect immediate destruction at scope end
-  - **Optional (controlled exception)**: if you must express ownership via a smart-pointer style while the object participates in the event loop, allow a smart pointer with a custom deleter that calls `deleteLater()` (e.g., `QSharedPointer<T>(new T, &QObject::deleteLater)`), and **do not set a parent**. You must also ensure the object's thread event loop exists.
+  - **Project-specific stricter constraint**: every shared-owned `QIODevice` uses a custom deleter that calls `deleteLater()`; a default deleter is forbidden, and the last owner must be released before the target event loop stops.
 - **Threads and affinity**:
   - **Required**: use the device only on its owning thread (thread affinity). Cross-thread interactions must use signals/queued connections.
-  - **Required**: devices that need `moveToThread()` **must not have a parent**. Destruction must be queued to the owning thread to call `deleteLater()`.
+  - **Required**: devices that need `moveToThread()` **must not have a parent**. A destruction request from outside the affinity thread must use the thread-safe `deleteLater()`; immediate destruction in the affinity thread is allowed only when the synchronous-safety conditions above hold.
 - **API ownership expression (standardize within the team)**:
   - **Should**: treat "using a device" as dependency injection: accept `QIODevice *device` / `QIODevice &device` as borrowed dependencies; the caller ensures lifetime outlives usage.
   - **Required**: if a function/object needs to "take over device lifetime", express ownership via `QObject *parent` (or an explicit owner). Smart-pointer ownership rules are described above.
@@ -502,7 +540,7 @@ Foo::Foo(int a, int b)
 
 #### Typical Examples (Qt6 + C++17)
 
-**❶ Wrong: treating `QObject` as a value type / mixing `deleteLater()` with owning smart pointers**
+**❶ Wrong: treating `QObject` as a value type / calling `deleteLater()` on a default-deleter owner**
 ```cpp
 #include <QObject>
 #include <QVector>
@@ -531,7 +569,7 @@ public:
 
     void scheduleDelete()
     {
-        m_widget->deleteLater(); // ❌ deleteLater may run before unique_ptr destruction → dangling / double delete
+        m_widget->deleteLater(); // ❌ deleteLater may run first, then unique_ptr invokes its default deleter again
     }
 
 private:
@@ -581,7 +619,7 @@ private:
 };
 ```
 
-**❸ Cross-thread: thread affinity and destruction strategy (no cross-thread delete; use queued + deleteLater)**
+**❸ Cross-thread: thread affinity and destruction strategy (no direct cross-thread destruction; use queued + deleteLater)**
 ```cpp
 #include <QObject>
 #include <QThread>
@@ -861,7 +899,10 @@ clang-tidy checks lexical naming only. `PublicMemberPrefix: ''` does not authori
 - [ ] `QStringLiteral` / `u""_qs`
 - [ ] Project `Q_OBJECT` gate: every in-scope `QObject`-derived class contains `Q_OBJECT`
 - [ ] Formal `Q_OBJECT` exceptions are recorded; moc/AUTOMOC, compilation, and linking pass
-- [ ] `QObject`: no copy/move/by-value containers; prefer `Q_DISABLE_COPY_MOVE`; use parent-child/`deleteLater()`, no manual `delete`; non-`QObject` uses `std::unique_ptr`/RAII
+- [ ] `QObject`: no copy/move/by-value passing or containers
+- [ ] Project gate: every `QObject`-derived class explicitly uses `Q_DISABLE_COPY_MOVE(Class)`
+- [ ] QObject ownership, direct destruction, `deleteLater()`, shared-owned QObject, worker shutdown, and QPointer rules are checked
+- [ ] Non-`QObject` exclusive ownership defaults to `std::unique_ptr`
 - [ ] Use QtConcurrent for long-running threaded tasks
 - [ ] No exceptions: do not add `throw`/`try`/`catch`; "may fail" APIs report failure explicitly and are `[[nodiscard]]`
 - [ ] Signals/slots: consistently use `Q_SIGNALS:` / `Q_SLOTS` / `Q_EMIT`; lambda/functor connect must have context; cross-thread uses explicit `Qt::QueuedConnection`; queued parameter types are registered as metatypes
@@ -870,7 +911,7 @@ clang-tidy checks lexical naming only. `PublicMemberPrefix: ''` does not authori
 
 ---
 
-**Document Package Version**: v1.1.0
-**Last Updated**: 2026-07-25
+**Document Package Version**: v1.2.0
+**Last Updated**: 2026-08-11
 
 ---

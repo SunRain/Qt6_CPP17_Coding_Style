@@ -74,6 +74,12 @@ Do not describe the policy as "all QObject objects must never be deleted directl
 - Use `deleteLater()` for event-driven, cross-thread, queued, or explicitly asynchronous worker
   destruction, and only when the object's thread can process deferred-delete events.
 - A queued connection or asynchronous callback alone does not prove that `deleteLater()` is required.
+- **Project-specific stricter constraint**: QObject shared ownership is forbidden by default. A
+  shared-owned QObject must use a custom deleter that calls `deleteLater()`, and the last owner must be
+  released before the target event loop stops; calling it after the main loop stops may leak forever.
+- QPointer is only a non-owning guarded borrow. Ordinary API parameters use `T *`/`T &`, with a
+  re-check in the target thread after queued cross-thread delivery. QPluginLoader::instance() and QML
+  ownership follow their dedicated topic contracts.
 - If owner, thread, or event-loop conditions cannot be proven in the task scope, preserve the existing
   lifetime and report the uncertainty rather than rewriting it in bulk.
 
@@ -266,5 +272,5 @@ Before delivery, check the task-appropriate subset of:
 
 ---
 
-**Document package version**: v1.1.0
-**Last updated**: 2026-07-25
+**Document package version**: v1.2.0
+**Last updated**: 2026-08-11
