@@ -1,13 +1,17 @@
 # Qt 宏布局代码规范
 
-本规范隶属 `Qt6_CPP17_Coding_Style.md`，是 Qt meta-object / QML / moc 宏布局的专题展开。
+> 兼容入口：中文专题权威为 [`cn/Qt_Macro_Layout_Coding_Style.md`](cn/Qt_Macro_Layout_Coding_Style.md)。
+> 英文镜像位于 [`en/Qt_Macro_Layout_Coding_Style.md`](en/Qt_Macro_Layout_Coding_Style.md)。
+
+本兼容文档同步呈现 `cn/Qt_Macro_Layout_Coding_Style.md`；该中文专题隶属
+`cn/Qt6_CPP17_Coding_Style.md` 总纲。
 
 适用范围：Qt 6 / KDE 风格 C++ 代码，尤其是 public header、QML toolkit、可被下游复用的组件库。
 
-权威边界：
-- 宏位置、类体布局、QML 注册宏、metatype 宏、d-pointer 宏、日志宏，以本文为唯一权威。
-- Public API 参数类型、Borrow / Owning、view 生命周期与 QML/meta-object 边界类型，以 `Qt6_KDE_API_Parameter_Style.md` 为唯一权威；本文只引用结论。
-- 基础格式、命名、生命周期、线程、错误处理，以 `Qt6_CPP17_Coding_Style.md` 为总纲。
+权威边界（完整规则以对应 `cn/` 文件为准）：
+- 宏位置、类体布局、QML 注册宏、metatype 宏、d-pointer 宏、日志宏，以 `cn/Qt_Macro_Layout_Coding_Style.md` 为专题权威。
+- Public API 参数类型、Borrow / Owning、view 生命周期与 QML/meta-object 边界类型，以 `cn/Qt6_KDE_API_Parameter_Style.md` 为专题权威；本文只引用结论。
+- 基础格式、命名、生命周期、线程、错误处理，以 `cn/Qt6_CPP17_Coding_Style.md` 为总纲。
 
 ## 1. 总原则
 
@@ -336,7 +340,7 @@ Q_DECLARE_METATYPE(hlui::ActionEvent)
 
 - `Q_DECLARE_METATYPE` 必须在类型完整定义之后。
 - namespace 类型通常在 namespace 外使用全限定名。
-- 若类型用于 queued connection，应确保可复制、可析构，并在需要时注册 metatype。
+- queued 类型的可传递性与 `qRegisterMetaType<T>()` 时机遵循中文总纲 §6.2.3 和 §6.3.4；本专题只规定 `Q_DECLARE_METATYPE` 的位置。
 - 不要把 view、裸借用生命周期对象注册成跨线程 payload。
 
 ## 13. 日志宏规范
@@ -450,13 +454,15 @@ private:
 };
 ```
 
-## 15. 注释规范
+## 15. 注释规范（仅宏布局增量）
 
-- 类说明使用 `/// @brief` 或简洁 Doxygen 注释。
-- QML-facing 类、role、稳定字符串、trace payload、错误码、生命周期边界必须注释。
-- 简单 `Q_PROPERTY`、简单 signal、普通 getter/setter 不逐项堆注释。
-- 注释解释“合同、边界、原因”，不要解释 Qt 语法。
-- 中文注释单条尽量不超过 80 字。
+完整的注释内容、覆盖范围、QDoc / Doxygen / KApiDox / 无生成器 profile 与验证规则，
+以 [`cn/CPP_Code_Comment_Guidelines.md`](cn/CPP_Code_Comment_Guidelines.md) 为唯一权威。
+本节只保留宏布局相关增量：
+
+- 宏分组、顺序或位置偏离默认模板且原因不直观时，注释约束来源和保持该布局的原因。
+- `Q_PROPERTY`、QML 注册宏、metatype、d-pointer 或日志宏承载稳定合同且仅从声明无法看清时，注释合同或边界，不解释宏语法。
+- 不为简单 property、signal、getter/setter 或显然的宏位置逐项堆注释。
 
 ## 16. 禁止项
 

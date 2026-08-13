@@ -1,10 +1,11 @@
 # Qt6 QML Coding Style
 
-English | 简体中文 | Source
+English (translation) | [Chinese authority](../cn/Qt6_QML_Coding_Style.md)
 
-> Note: This document is the English translation of the current Qt6 / QML coding guideline. If there is any discrepancy, the package baseline prevails.
+> Authority: the complete Chinese QML topic is [`cn/Qt6_QML_Coding_Style.md`](../cn/Qt6_QML_Coding_Style.md). This file is its translation and must not override it.
 
-This guideline belongs to `Qt6_CPP17_Coding_Style.md` and expands the package rules for QML (`.qml` files and QML JavaScript).
+This translation mirrors `cn/Qt6_QML_Coding_Style.md`; that Chinese topic belongs to the
+`cn/Qt6_CPP17_Coding_Style.md` umbrella.
 
 Scope:
 
@@ -17,16 +18,16 @@ Out of scope:
 
 - C++ source code, QObject headers, and moc macro layout
 - C++-side QML registration macros
-- QML ↔ C++ boundary types and C++ ownership design; this document only owns QML dynamic-object and visual-parent rules
+- QML ↔ C++ boundary types and C++ ownership design; the Chinese QML authority owns only QML dynamic-object and visual-parent rules
 
 Authority boundaries:
 
-- QML language-level rules (object declaration order, bindings, component APIs, View/delegate, Loader, states, animations, i18n, accessibility, and QML performance) are owned by this document.
-- QML registration macros, C++-side class layout, `QML_ELEMENT`, `QML_NAMED_ELEMENT`, `QML_SINGLETON`, `Q_INVOKABLE`, and related macro placement are owned by `Qt_Macro_Layout_Coding_Style.md`.
-- QML ↔ C++ boundary types, Borrow / Owning semantics, and QObject ownership are owned by `Qt6_KDE_API_Parameter_Style.md`; this document only references their conclusions.
+- QML language-level rules (object declaration order, bindings, component APIs, View/delegate, Loader, states, animations, i18n, accessibility, and QML performance) are owned by `cn/Qt6_QML_Coding_Style.md`.
+- QML registration macros, C++-side class layout, `QML_ELEMENT`, `QML_NAMED_ELEMENT`, `QML_SINGLETON`, `Q_INVOKABLE`, and related macro placement are owned by `cn/Qt_Macro_Layout_Coding_Style.md`.
+- QML ↔ C++ boundary types, Borrow / Owning semantics, and QObject ownership are owned by `cn/Qt6_KDE_API_Parameter_Style.md`; this translation only references their conclusions.
 - QML dynamic-object rules distinguish `QObject::parent()`, `QQuickItem::parentItem()`, Loader/Instantiator owners, and JavaScript ownership; C++ ownership transfer remains owned by the API parameter guideline.
-- Commenting rules are owned by `CPP_Code_Comment_Guidelines.md`; this document only adds QML-specific notes.
-- Baseline formatting, naming, lifetime, threading, and error handling are governed by `Qt6_CPP17_Coding_Style.md`.
+- Commenting rules are owned by `cn/CPP_Code_Comment_Guidelines.md`; the Chinese QML topic only adds QML-specific notes.
+- Baseline formatting, naming, lifetime, threading, and error handling are governed by `cn/Qt6_CPP17_Coding_Style.md`.
 - This project extends the no-exception error-handling constraint to QML/JavaScript application code; this is a project-specific stricter constraint, not a universal Qt/QML syntax ban.
 
 ---
@@ -951,7 +952,7 @@ Image {
 - `console.warn()` / `console.error()` must include enough context to locate the issue.
 - Handle failures for Loader, Image, dynamic creation, and async components.
 - **Project-specific stricter constraint (mandatory)**: QML/JavaScript application code must not use `throw`, `try`, or `catch`; JavaScript exceptions must not be used as an API error-return or control-flow mechanism.
-- API failures must be expressed through C++-exposed error codes, error states, `errorString()`, or equivalent explicit results/properties.
+- API failures must be expressed through explicit result objects, state properties, failure signals, or C++-provided error codes, error states, and `errorString()`; the failure source may be QML/JavaScript or C++, and C++ exposure is not the only valid route.
 - Do not silently swallow errors and continue as if everything succeeded.
 - Centralize stable error codes, diagnostic fields, and trace payloads; do not scatter strings.
 
@@ -1008,7 +1009,7 @@ Item {
 
 ## 18. QML Commenting Notes
 
-The complete commenting rules are owned by `CPP_Code_Comment_Guidelines.md`. This section only adds QML-specific boundaries that are easy to remove or write incorrectly.
+The complete commenting rules are owned by `cn/CPP_Code_Comment_Guidelines.md`. This section translates only the QML-specific boundaries that are easy to remove or write incorrectly.
 
 **Must**:
 
@@ -1104,6 +1105,6 @@ ctest --test-dir build --output-on-failure
 ---
 
 **Package version**: v1.2.0
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-13
 
 ---

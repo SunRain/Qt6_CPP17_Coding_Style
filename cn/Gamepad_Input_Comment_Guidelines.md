@@ -1,4 +1,13 @@
-# Gamepad UI Toolkit / Linux 输入与手柄库注释规范
+# Gamepad UI Toolkit / Linux 输入与手柄库注释增量
+
+[English translation](../en/Gamepad_Input_Comment_Guidelines.md) | 简体中文（领域增量） |
+[根目录兼容入口](../Gamepad_Input_Comment_Guidelines.md)
+
+> 权威关系：本文是 `CPP_Code_Comment_Guidelines.md` 的中文领域增量，只列出输入与
+> 手柄代码中容易遗漏的隐藏契约，不独立决定注释形式、覆盖范围或文档生成器。发生
+> 冲突时以同目录的注释专题权威为准。
+>
+> 注释语法必须服从项目已选的 QDoc、Doxygen、KApiDox 或无生成器 profile。项目未配置生成器时，不得仅因本文引入 Doxygen/KApiDox 工具链；示例中的 `///` 只表示“稳定 API 合同注释”，实际标记按所选 profile 调整。
 
 ## 核心原则
 
@@ -8,7 +17,7 @@
 
 ## 注释形式
 
-公共类型、公共函数和稳定契约使用 Doxygen 风格：
+公共类型、公共函数和稳定契约按 `CPP_Code_Comment_Guidelines.md` 及项目文档 profile 书写。以下示例采用 Doxygen 风格：
 
 ```cpp
 /// @brief Packs key and relevant modifiers into a stable chord code.

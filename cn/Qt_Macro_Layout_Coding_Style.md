@@ -1,7 +1,9 @@
 # Qt 宏布局代码规范（中文）
-English | 简体中文 | 原文
+[English translation](../en/Qt_Macro_Layout_Coding_Style.md) | 简体中文（专题权威） |
+[根目录兼容入口](../Qt_Macro_Layout_Coding_Style.md)
 
-> 说明：本文档为当前 Qt 宏布局代码规范的中文整理版（用于阅读与分发）。若与规范基线存在差异，以规范基线为准。
+> 权威关系：本文是 `cn/` 规范包中 Qt / QML / moc 宏布局的中文专题权威。根目录
+> 同名文档仅作为兼容入口，`en/` 文档仅作为英文翻译；发生语义差异时以本文为准。
 
 本规范隶属 `Qt6_CPP17_Coding_Style.md`，是 Qt meta-object / QML / moc 宏布局的专题展开。
 
@@ -339,7 +341,7 @@ Q_DECLARE_METATYPE(hlui::ActionEvent)
 
 - `Q_DECLARE_METATYPE` 必须在类型完整定义之后。
 - namespace 类型通常在 namespace 外使用全限定名。
-- 若类型用于 queued connection，应确保可复制、可析构，并在需要时注册 metatype。
+- queued 类型的可传递性与 `qRegisterMetaType<T>()` 时机遵循 `Qt6_CPP17_Coding_Style.md` §6.2.3 和 §6.3.4；本专题只规定 `Q_DECLARE_METATYPE` 的位置。
 - 不要把 view、裸借用生命周期对象注册成跨线程 payload。
 
 ## 13. 日志宏规范
@@ -453,13 +455,13 @@ private:
 };
 ```
 
-## 15. 注释规范
+## 15. 注释规范（仅宏布局增量）
 
-- 类说明使用 `/// @brief` 或简洁 Doxygen 注释。
-- QML-facing 类、role、稳定字符串、trace payload、错误码、生命周期边界必须注释。
-- 简单 `Q_PROPERTY`、简单 signal、普通 getter/setter 不逐项堆注释。
-- 注释解释“合同、边界、原因”，不要解释 Qt 语法。
-- 中文注释单条尽量不超过 80 字。
+完整的注释内容、覆盖范围、QDoc / Doxygen / KApiDox / 无生成器 profile 与验证规则，以 `CPP_Code_Comment_Guidelines.md` 为唯一权威。本节只保留宏布局相关增量：
+
+- 宏分组、顺序或位置偏离默认模板且原因不直观时，注释约束来源和保持该布局的原因。
+- `Q_PROPERTY`、QML 注册宏、metatype、d-pointer 或日志宏承载稳定合同且仅从声明无法看清时，注释合同或边界，不解释宏语法。
+- 不为简单 property、signal、getter/setter 或显然的宏位置逐项堆注释。
 
 ## 16. 禁止项
 

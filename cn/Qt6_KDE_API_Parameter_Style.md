@@ -1,8 +1,10 @@
 # Qt6 / KDE 风格共享库 Public API 参数规范（中文）
 
-English | 简体中文 | 原文
+[English translation](../en/Qt6_KDE_API_Parameter_Style.md) | 简体中文（专题权威） |
+[根目录兼容入口](../Qt6_KDE_API_Parameter_Style.md)
 
-> 说明：本文档为当前 Qt6 / KDE API 参数规范的中文整理版（用于阅读与分发）。若与规范基线存在差异，以规范基线为准。
+> 权威关系：本文是 `cn/` 规范包中 Public API 参数语义的中文专题权威。根目录同名
+> 文档仅作为兼容入口，`en/` 文档仅作为英文翻译；发生语义差异时以本文为准。
 
 本规范隶属 `Qt6_CPP17_Coding_Style.md`，是 Public API 参数语义的专题展开。
 
@@ -575,9 +577,11 @@ connect(sender, &Sender::nameChanged,
 
 - parent-owned QObject 不得再由 owning 智能指针管理。
 - QPointer 是非 owning guarded pointer，不延长生命周期、不提供锁、不提供线程同步，也不授权跨线程访问。
-- QPointer 的判空和解引用必须在对象 affinity thread 内完成，两者之间不得跨越重入、信号、事件处理或未知 callback。
-- 跨线程访问时向对象所属线程投递命令，并在命令执行时重新检查 QPointer。
-- QObject 的所有方法调用和状态访问必须遵守 thread affinity。
+- **本项目提高约束**：QPointer 的判空和解引用在对象 affinity thread 内完成，两者之间不得跨越重入、信号、事件处理或未知 callback。跨线程观察时向对象所属线程投递命令，并在命令执行时重新检查 QPointer。
+- **通用默认**：event-driven 或有可变状态的 QObject，以及未明确标记为 thread-safe 的方法，均在对象 affinity thread 中访问；GUI 对象只能在 GUI 线程访问。
+- **技术例外**：Qt 文档明确标记为 thread-safe 的方法可以按其合同跨线程调用；该保证只覆盖被标记的方法及其前置条件，不自动扩展到同一对象的其他方法或可变状态。
+- **必须区分**：reentrant 只保证不同线程可以并发使用各自的实例，不代表同一实例自动线程安全。
+- **受控例外**：同一实例的跨线程访问只有在 API 合同明确允许、对象生命周期稳定、全部相关共享状态都有外部同步且不会绕过事件循环、计时器或 GUI 线程约束时才成立，并必须在评审中记录依据。仅增加一把锁不能把 thread-affine QObject 变成任意线程可用。
 - Qt 信号槽、计时器和异步 callback 必须提供 context，使连接在 context 析构时自动失效。
 - callback 观察外部 QObject 时优先捕获 QPointer；只有 callback 本身确为 co-owner 时才捕获强 shared owner，并必须通过 weak pointer、显式断连或等价结构防止循环引用。
 

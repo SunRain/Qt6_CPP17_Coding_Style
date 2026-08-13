@@ -1,13 +1,14 @@
 # Qt6 C++17 Coding Style
 
-English | 简体中文 | Source
+English (translation) | [Chinese authority](../cn/Qt6_CPP17_Coding_Style.md) |
+[Root compatibility entry](../Qt6_CPP17_Coding_Style.md)
 
-> Note: This document is the English translation of the current Qt6 / C++17 coding guideline. If there is any discrepancy, the package baseline prevails.
+> Authority: the complete Chinese normative text is under `cn/`. The root-level document is a compatibility entry and this file is an English translation; neither may override the `cn/` rules.
 
 ## Guiding Principles
 
 ---
-You are a senior Qt/KDE and modern C++17 developer. The following rules are mandatory and have the highest priority; if any rules conflict, the lower-numbered one wins.
+You are a senior Qt/KDE and modern C++17 developer. Before applying a rule, identify its source and strength. Only clauses explicitly marked **Required**, **Forbidden**, or **Project gate** are blocking; section order alone must not promote a recommendation into a technical requirement.
 All code must compile as modern C++17 (GCC ≥ 11, Clang ≥ 14, MSVC ≥ 2019), pass clang-format (using the bundled formatting baseline) and optionally clang-tidy (see Chapter 10 for a minimal example), and keep the project build/tests warning-free (where applicable). For more detailed conventions, refer to:
 - https://wiki.qt.io/Qt_Coding_Style
 - https://wiki.qt.io/Coding_Conventions
@@ -15,21 +16,31 @@ All code must compile as modern C++17 (GCC ≥ 11, Clang ≥ 14, MSVC ≥ 2019),
 
 ---
 
-## Guideline Package Relationship (Umbrella + Two Topics)
+## Guideline Package Relationship (Chinese authority and compatibility entries)
 
-This document is the single umbrella guideline for the Qt6 / KDE / C++17 coding-style package. It owns the baseline coding rules, lifetime rules, threading rules, error handling, tooling configuration, and general Qt conventions.
+`cn/Qt6_CPP17_Coding_Style.md` is the Chinese umbrella authority for the Qt6 / KDE / C++17 package. This root-level file is only a compatibility entry and must not define conflicting rules.
 
-Two topic documents expand this umbrella guideline and must not duplicate full rules already owned elsewhere:
+Topic authorities, domain additions, and derived execution documents are the corresponding files under `cn/`:
 
-- `Qt_Macro_Layout_Coding_Style.md`: the sole authority for Qt / QML / moc macro layout, including where to place `Q_OBJECT`, `Q_PROPERTY`, `Q_SIGNALS:`, `Q_SLOTS`, `Q_ENUM`, metatype macros, d-pointer macros, and logging macros.
-- `Qt6_KDE_API_Parameter_Style.md`: the sole authority for Public API parameter semantics, including Borrow / Owning, view lifetimes, QML/meta-object boundary types, overload control, and compatibility.
+- `cn/Qt6_QML_Coding_Style.md`: QML language and runtime rules.
+- `cn/Qt_Macro_Layout_Coding_Style.md`: Qt / QML / moc macro layout.
+- `cn/Qt6_KDE_API_Parameter_Style.md`: public API parameters, ownership, threads, and boundary types.
+- `cn/CPP_Code_Comment_Guidelines.md`: comment and documentation-tooling rules.
+- `cn/Gamepad_Input_Comment_Guidelines.md`: input/gamepad domain additions.
+- `cn/AI_CODING_BEHAVIOR.md` and `cn/Qt6_KDE_API_Parameter_Style.system-prompt.md`: derived execution documents.
 
-When a topic-level detail conflicts with this document's summary, the corresponding topic document wins. This document keeps summaries and cross-references only, so the three documents do not drift.
+When documents differ, the corresponding Chinese authority under `cn/` wins. Root and English files must be synchronized and must not override `cn/`.
 
-This umbrella is also the authority for the project's `Q_OBJECT` presence gate: every `QObject`-
+### Rule Sources and Strength
+
+- **Qt/KDE technical facts and hard requirements** come from the language, compilers, Qt/KDE API contracts, and toolchain constraints; violating them is a technical error.
+- **General defaults** are robust Qt/KDE and open-source Qt practices marked **Should**, **Recommended**, or **Default**; projects may diverge with sufficient evidence.
+- **Strict project gates** exceed upstream minimums and must be marked **Project-specific stricter constraint** or **Project gate**. They apply only to projects adopting this package and must not be presented as universal Qt/KDE facts.
+
+The Chinese umbrella is also the authority for the project's `Q_OBJECT` presence gate: every `QObject`-
 derived class in this project must contain `Q_OBJECT`. The project has promoted a strong Qt upstream
 recommendation to an executable gate; it must not be described as a universal Qt technical requirement.
-Macro placement and order remain governed by `Qt_Macro_Layout_Coding_Style.md`.
+Macro placement and order remain governed by `cn/Qt_Macro_Layout_Coding_Style.md`.
 
 ## 0 Overview
 - Compilers: GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
@@ -345,7 +356,7 @@ Foo::Foo(int a, int b)
 - **Project-specific stricter constraint (mandatory)**: project C++ code must not use `throw`, `try`, or `catch`; exceptions must not be used as an API error-return mechanism or as control flow. Do not describe this policy as a universal Qt or KDE technical requirement.
 - **Required**: any function that "may fail" must **explicitly report failure**; do not swallow errors via implicit default values.
 - **Required**: expose API errors through explicit error codes, error states, `errorString()`, or equivalent interfaces; diagnostic text must not replace structured error state.
-- **Required**: failure-returning APIs must be `[[nodiscard]]` to prevent callers from ignoring failures (e.g., `[[nodiscard]] bool ...`, `[[nodiscard]] std::optional<T> ...`).
+- **Required**: in project-owned APIs, use `[[nodiscard]]` when ignoring the return value would lose a failure or continue an invalid path (for example, `[[nodiscard]] bool ...` or `[[nodiscard]] std::optional<T> ...`). Do not mechanically add it to every `bool`, `optional`, override, or query whose result may validly be ignored.
 - **Required**: use assertions only for *programmer errors* (broken preconditions/invariants that should not happen). For recoverable errors (user input, I/O, network, plugin loading, etc.), use return-value-based failure reporting.
 - **Should**: be clear about who owns error reporting. Low-level library functions should not spam `qWarning()` unconditionally; log or surface user-visible errors at the boundary layer (UI/CLI/service entry points).
 
@@ -417,10 +428,13 @@ Foo::Foo(int a, int b)
 | `Q_OBJECT` | Project gate: every `QObject`-derived class contains it | `Q_OBJECT` present | Omit the macro or silently waive it |
 | Signal/slot connections | Use new-style `connect` | `connect(sender, &Sender::valueChanged, receiver, &Receiver::update);` | `SIGNAL/SLOT` strings |
 | String literals | Use `QStringLiteral("...")` or `u"..."_qs` | `QStringLiteral("hello")` | `QString("hello")` |
-| Heavy work | Prefer `QtConcurrent::run(&Worker::doWork)` | `QtConcurrent::run(&Worker::doWork)` | manual `new Thread` |
+| Background work | Select by task model | `QtConcurrent`/`QThreadPool` for stateless or chunkable work; worker-object + `QThread` for long-lived affinity work | apply one model without analyzing the task |
 | `QObject` semantics | Pointer semantics only (pass/store pointers/references) | `QVector<Foo *> foos;` | `QVector<Foo> foos;` |
 | Memory management | value semantics/RAII, parent tree, safe-point destruction, `deleteLater()` | unclear ownership, duplicate owners, wrong-thread destruction |
 
+- **Stateless or chunkable work**: prefer `QtConcurrent` or `QThreadPool`; do not create a long-lived thread object for one-shot work.
+- **Long-lived worker**: when the task needs an event loop, timers, asynchronous I/O, or stable thread affinity, default to worker-object + `QThread` and define startup, shutdown, and destruction contracts.
+- **Selection rule**: choose from state, cancellation, event-loop, and affinity requirements; do not mechanically equate heavy work with `QtConcurrent`.
 - **Rule strength**: **Required/Forbidden** applies to memory safety, lifetime, threading, and single ownership; **Should/Default** applies to Qt 6, KDE, QML-library, and modern C++17 recommendations; stricter project rules must be marked **Project-specific stricter constraint**.
 - **Basic principle**: decide value semantics, exclusive ownership, shared lifetime, or borrowed observation before choosing a pointer type; do not choose by Qt/std pointer family.
 - Do not heap-allocate or use smart pointers when a value, stack object, or direct member expresses the lifetime.
@@ -658,7 +672,7 @@ void startWorker(QObject *owner)
 - **Required**: all Qt C++ code uses keyword-free macro spelling: `Q_SIGNALS:`, `Q_SLOTS`, and `Q_EMIT`. Do not add `signals:`, `slots:`, or bare `emit`.
 - **Required**: when connecting with a lambda/functor, you must provide a **context** (typically the receiver/owner). Do not use the overload that connects a functor **without** a context.
 - **Required**: lambdas/functors must not capture raw pointers that may be destroyed before the connection is disconnected. If you capture `this`, the context must be `this` (or a longer-lived owner), and prefer capturing `QPointer<T>` for weak-reference protection.
-- **Recommended**: use `Qt::UniqueConnection` at repeated connection points (may be called multiple times) to prevent duplicate connections. If manual disconnection is needed, store `QMetaObject::Connection` and call `disconnect()` at the right time.
+- **Recommended**: use `Qt::UniqueConnection` for repeated member-function connections. It does not apply to lambdas, non-member functions, or functors. Prevent duplicate lambda/functor connections by storing and explicitly disconnecting `QMetaObject::Connection`, disconnecting before rebuilding, or using an auditable idempotence gate.
 
 Examples (recommended / forbidden):
 ```cpp
@@ -672,21 +686,26 @@ connect(sender, &Sender::valueChanged, [this](int v) { onValue(v); });
 #### 6.2.2 Thread Semantics (Mandatory)
 
 - **Required**: do not access GUI objects from non-GUI threads. GUI updates must be performed on the GUI thread (queued connection or `QMetaObject::invokeMethod`).
-- **Required**: if sender/receiver is clearly cross-thread (or receiver may `moveToThread()`), explicitly use `Qt::QueuedConnection`.
+- **Default**: use `Qt::AutoConnection`; Qt chooses direct or queued delivery at emission time from the receiver's thread affinity, so cross-thread sender/receiver alone does not require explicit `Qt::QueuedConnection`.
+- **Required**: spell `Qt::QueuedConnection` only when the contract requires fixed asynchronous delivery, and document why.
 - **Forbidden**: use `Qt::DirectConnection` across threads (unless the slot is fully thread-safe and does not touch GUI / thread-affine Qt objects, and you document the rationale in code review).
 - **Forbidden (by default)**: `Qt::BlockingQueuedConnection`, unless you have a clear synchronization need and can prove it will not deadlock (must be justified in review).
 
-#### 6.2.3 Parameter Types for Queued Connections (Mandatory)
+#### 6.2.3 Queued Parameter Types and Registration (Mandatory + As Needed)
 
-- **Required**: any custom type passed via queued connections must be recognized by the Qt meta-type system: at least `Q_DECLARE_METATYPE(T)`, and ensure it is registered before use (recommended: `qRegisterMetaType<T>()` once in `main()` or module init).
+- **Required**: queued payload types are complete, copy/move/destructible as required by the delivery path, known to `QMetaType`, and do not contain dangling views or short-lived borrows.
+- **Required**: for a custom type not automatically declared by Qt, add `Q_DECLARE_METATYPE(T)` after its complete definition.
+- **Default for this guideline**: no minimum Qt 6 minor is declared. If a custom type may travel through a queued connection or cross-thread `Qt::AutoConnection`, call no-argument `qRegisterMetaType<T>()` once before the first relevant connection.
+- **By name when needed**: dynamic type-name resolution still requires runtime-name verification; new examples must not use the obsolete named-registration overload.
+- **Required**: register on an explicit program or module initialization path before the first relevant connection or invocation; do not depend on accidental static-initialization order.
 
 Example (custom type used as a queued parameter):
 ```cpp
 struct Payload { int id = 0; };
 Q_DECLARE_METATYPE(Payload)
 
-// Once at program start or module init:
-// qRegisterMetaType<Payload>("Payload");
+// At program or module initialization, before the first possibly queued connection.
+qRegisterMetaType<Payload>();
 ```
 
 ### 6.3 Meta-Object System and Properties (Q_OBJECT / Q_PROPERTY / Metatypes) (Project Gate + Mandatory + Recommended)
@@ -713,9 +732,13 @@ This "required" status is a project policy and cannot be inferred as a general r
 libraries. For value types that need reflection but not QObject lifetime or signals, use `Q_GADGET`;
 for namespace enums use `Q_NAMESPACE` with `Q_ENUM_NS` / `Q_FLAG_NS`.
 
-#### 6.3.2 Q_PROPERTY (Mandatory)
+#### 6.3.2 Q_PROPERTY (Mandatory + Recommended)
 
-- **Required**: mutable properties must have `NOTIFY`. Setters must return early when the value does not change to avoid pointless signals and binding churn.
+- **Required**: properties observed by QML, property bindings, or other observers must provide a valid change-notification mechanism and avoid pointless notifications.
+- **Default**: traditional properties use `NOTIFY`; a hand-written traditional setter returns early on equality, then updates state and emits.
+- **Required**: a bindable-property setter writes the underlying bindable property on every path; do not mechanically add an equality early return, because it can prevent removal of an existing binding.
+- **Controlled route**: use `BINDABLE` only after the project's Qt minor baseline, moc, qmllint, and runtime tests validate the target usage; do not remove `NOTIFY` without that evidence.
+- **Not universal**: a property used only for reflection, internal metadata, or a contract that explicitly needs no observation does not automatically require `NOTIFY`; ensure callers do not depend on absent notifications.
 - **Required**: be explicit about thread affinity. If a property may be updated cross-thread, switch back to the object's thread via queued invocation before modifying and `Q_EMIT`-ing.
 - **Recommended**: write `FINAL` for QML-facing, public stable properties that are not intended to be overridden. Do not force `FINAL` for properties that need subclass extension, test-double overrides, or are still evolving as API.
 
@@ -747,9 +770,11 @@ private:
 - **Recommended**: prefer `enum class` and expose enums via `Q_ENUM` / `Q_ENUM_NS` for QML/debugging/reflection.
 - **Recommended**: use `QFlags` + `Q_FLAG` / `Q_FLAG_NS` for bit flags, and standardize operators via `Q_DECLARE_FLAGS` / `Q_DECLARE_OPERATORS_FOR_FLAGS`.
 
-#### 6.3.4 Metatype Registration (Mandatory)
+#### 6.3.4 Metatype Availability and Runtime Registration (Mandatory + As Needed)
 
-- **Required**: any custom type used as a queued-connection parameter, stored in `QVariant`, or used across the QML boundary (property/signal/method parameter) must be registered as a metatype (see 6.2.3). Across modules, ensure registration happens on a reachable path before use to avoid "registered only by static init in one .cpp" flakiness.
+- **Required**: a custom type stored in `QVariant` or used through template metatype APIs must be known to `QMetaType`; if Qt does not declare it automatically, use `Q_DECLARE_METATYPE(T)` after the complete definition.
+- **Required**: queued-connection parameters follow the completeness, lifetime, and transferability rules in 6.2.3. If a custom type may travel through queued delivery or cross-thread `Qt::AutoConnection`, call no-argument `qRegisterMetaType<T>()` before the first relevant connection. Verify the runtime name separately for compatibility paths that resolve by name.
+- **Required**: QML properties, signal parameters, and method parameters must also satisfy QML type-system and boundary requirements. C++ metatype declaration or runtime registration alone is not QML type registration.
 
 ---
 
@@ -887,6 +912,8 @@ clang-tidy checks lexical naming only. `PublicMemberPrefix: ''` does not authori
 - [ ] `#include` order & include guards are correct
 - [ ] `clang-format --dry-run` shows no diff
 - [ ] clang-tidy has no warnings
+- [ ] Applicable clauses distinguish Qt/KDE technical facts, general defaults, and strict project gates
+- [ ] The umbrella, topic authorities, domain additions, derived execution documents, and machine configuration do not override one another in reverse
 - [ ] No exceptions/RTTI/dynamic_cast
 - [ ] The direct-field model was approved before naming; `class`/`struct`, suffixes, and inheritance were not treated as automatic approval
 - [ ] Approved record-like and internal PIMPL/shared-data types use unprefixed lowerCamelCase for public non-static direct fields
@@ -903,15 +930,16 @@ clang-tidy checks lexical naming only. `PublicMemberPrefix: ''` does not authori
 - [ ] Project gate: every `QObject`-derived class explicitly uses `Q_DISABLE_COPY_MOVE(Class)`
 - [ ] QObject ownership, direct destruction, `deleteLater()`, shared-owned QObject, worker shutdown, and QPointer rules are checked
 - [ ] Non-`QObject` exclusive ownership defaults to `std::unique_ptr`
-- [ ] Use QtConcurrent for long-running threaded tasks
-- [ ] No exceptions: do not add `throw`/`try`/`catch`; "may fail" APIs report failure explicitly and are `[[nodiscard]]`
-- [ ] Signals/slots: consistently use `Q_SIGNALS:` / `Q_SLOTS` / `Q_EMIT`; lambda/functor connect must have context; cross-thread uses explicit `Qt::QueuedConnection`; queued parameter types are registered as metatypes
-- [ ] Meta-object: mutable `Q_PROPERTY` must have `NOTIFY`; setters `Q_EMIT` only when changed; custom types are registered when used with QVariant/QML
+- [ ] Select the background-task model: QtConcurrent/QThreadPool for stateless or chunkable work; worker-object + QThread for long-lived affinity workers
+- [ ] No exceptions: do not add `throw`/`try`/`catch`; project return values that can lose errors when ignored use `[[nodiscard]]`
+- [ ] Signals/slots: functor connects have context; `Qt::UniqueConnection` is used only for member-function connects; default is `Qt::AutoConnection`
+- [ ] Queued payloads: custom types call no-argument `qRegisterMetaType<T>()` before the first possibly queued connection
+- [ ] Meta-object: traditional setters return early on equality; bindable setters write the underlying property on every path; `BINDABLE` notification has been validated against the project Qt baseline
 ```
 
 ---
 
 **Document Package Version**: v1.2.0
-**Last Updated**: 2026-08-11
+**Last Updated**: 2026-08-13
 
 ---

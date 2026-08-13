@@ -1,20 +1,22 @@
 # Qt6 / KDE Shared-Library Public API Parameter Style
 (`QString` owning + view borrow)
 
-English | 简体中文 | Source
+English (translation) | [Chinese authority](../cn/Qt6_KDE_API_Parameter_Style.md) | [Root compatibility entry](../Qt6_KDE_API_Parameter_Style.md)
 
-> Note: This document is the English translation of the current Qt6 / KDE API parameter guideline. If there is any discrepancy, the package baseline prevails.
+> Authority: the complete Chinese API-parameter topic is under `cn/`. This file is a translation;
+> the root-level file is a compatibility entry, and neither may override `cn/`.
 
-This guideline belongs to `Qt6_CPP17_Coding_Style.md` and expands its Public API parameter-semantics topic.
+This translation mirrors `cn/Qt6_KDE_API_Parameter_Style.md`; that Chinese topic belongs to the
+`cn/Qt6_CPP17_Coding_Style.md` umbrella.
 
 Scope: exported Qt6/KF6 shared-library APIs (public headers / exported symbols), plus interface layers that include QML bindings (`Q_PROPERTY` / `Q_INVOKABLE` / signals/slots).
 
 Goal: keep public interfaces clear and maintainable; keep internal implementations performant and simple; allow view-based borrow APIs to be introduced gradually while avoiding overload traps in public headers.
 
 Authority boundaries:
-- Public API parameter types, Borrow / Owning, view lifetimes, overload control, and compatibility are owned by this document.
-- Qt / QML / moc macro placement and class-body layout are owned by `Qt_Macro_Layout_Coding_Style.md`.
-- Baseline formatting, naming, lifetime, threading, and error handling are owned by `Qt6_CPP17_Coding_Style.md`.
+- Public API parameter types, Borrow / Owning, view lifetimes, overload control, and compatibility are owned by `cn/Qt6_KDE_API_Parameter_Style.md`.
+- Qt / QML / moc macro placement and class-body layout are owned by `cn/Qt_Macro_Layout_Coding_Style.md`.
+- Baseline formatting, naming, lifetime, threading, and error handling are owned by `cn/Qt6_CPP17_Coding_Style.md`.
 - Code examples consistently use keyword-free macro spelling: `Q_SIGNALS:`, `Q_SLOTS`, `Q_EMIT`.
 
 Version / prerequisites (recommended to state explicitly in the project):
@@ -557,7 +559,7 @@ The most practical implementation is a compile-only test target under `tests/` t
 
 ## 7) Pointers, Smart Pointers, and Boundary Ownership
 
-> This section defines ownership at Public API, callback, plugin, and QML/C++ boundaries. General C++ lifetime, control-block, and QObject destruction rules are owned by `Qt6_CPP17_Coding_Style.md`.
+> This section translates ownership rules for Public API, callback, plugin, and QML/C++ boundaries. General C++ lifetime, control-block, and QObject destruction rules are owned by `cn/Qt6_CPP17_Coding_Style.md`.
 
 ### 7.1 Borrowed and owning parameters
 
@@ -580,7 +582,10 @@ The most practical implementation is a compile-only test target under `tests/` t
 - QPointer is a non-owning guarded pointer. It does not extend lifetime, provide a lock, provide synchronization, or authorize cross-thread access.
 - Check and dereference QPointer in the object's affinity thread without crossing reentrancy, signal, event, or unknown-callback boundaries.
 - Queue cross-thread commands to the object's thread and re-check QPointer when the command executes.
-- All QObject method calls and state access must obey thread affinity.
+- **Default**: event-driven or mutable-state QObjects, and methods not explicitly documented as thread-safe, are accessed on the object's affinity thread; GUI objects are accessed only on the GUI thread.
+- **Technical exception**: a method explicitly documented by Qt as thread-safe may be called across threads under that contract; the guarantee does not extend to other methods or mutable state of the same object.
+- **Must distinguish**: reentrant means separate instances may be used concurrently; it does not make one instance automatically thread-safe.
+- **Controlled exception**: cross-thread access to one instance is valid only when the API contract permits it, lifetime is stable, all shared mutable state is externally synchronized, and event-loop, timer, and GUI-thread constraints are not bypassed; record the evidence in review.
 - Qt signals/slots, timers, and async callbacks must provide a context so the connection becomes invalid when the context is destroyed.
 - Prefer QPointer when a callback observes an external QObject. Capture a strong shared owner only when the callback is a co-owner, and prevent cycles with a weak pointer, explicit disconnection, or an equivalent structure.
 

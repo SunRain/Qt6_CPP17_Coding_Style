@@ -1,10 +1,11 @@
 # AI 生成 C++/Qt/QML 代码注释规范
 
-[English](../en/CPP_Code_Comment_Guidelines.md) | 简体中文 |
-[原文](../CPP_Code_Comment_Guidelines.md)
+[English translation](../en/CPP_Code_Comment_Guidelines.md) | 简体中文（专题权威） |
+[根目录兼容入口](../CPP_Code_Comment_Guidelines.md)
 
-> 说明：本文档是当前 C++/Qt/QML 注释规范的中文整理版，用于阅读、分发和约束
-> AI/agent 生成代码。若与规范基线存在差异，以规范基线为准。
+> 权威关系：本文是 `cn/` 规范包中注释内容、覆盖范围和文档工具链规则的中文专题
+> 权威。根目录同名文档仅作为兼容入口，`en/` 文档仅作为英文翻译；发生语义差异时
+> 以本文为准。
 
 ## 1. 适用范围与权威关系
 
@@ -617,4 +618,4 @@ TODO/FIXME 必须包含真实的 bug ID、owner 或其他可追踪上下文之�
 
 **文档包版本**：v1.2.0
 
-**最后更新**：2026-08-11
+**最后更新**：2026-08-13

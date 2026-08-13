@@ -1,9 +1,12 @@
 # AI Coding Behavior and Execution Boundaries
 
+> Translation of the Chinese derived document [`cn/AI_CODING_BEHAVIOR.md`](../cn/AI_CODING_BEHAVIOR.md).
+> The `cn/` authorities take precedence over this file.
+
 [English](./AI_CODING_BEHAVIOR.md) | [Simplified Chinese](../cn/AI_CODING_BEHAVIOR.md) |
 [Source](../AI_CODING_BEHAVIOR.md)
 
-> This document constrains how an AI/agent applies project authorities. It does not redefine or
+> This document is the English translation of the derived Chinese execution document. It constrains how an AI/agent applies project authorities. It does not redefine or
 > enlarge C++/Qt/QML rules, build configuration, documentation tooling, version metadata, or task scope.
 
 > **Project-policy prerequisite:** The rule that every `QObject` subclass must contain `Q_OBJECT` is
@@ -15,16 +18,17 @@
 The AI/agent must determine scope, facts, authority, and verification before editing code or comments.
 The authority relationship is:
 
-1. `Qt6_CPP17_Coding_Style.md` is the C++/Qt lifetime, threading, and formatting baseline.
-2. `Qt6_QML_Coding_Style.md` owns QML-specific additions and must explicitly reference the comment
+1. [`cn/Qt6_CPP17_Coding_Style.md`](../cn/Qt6_CPP17_Coding_Style.md) is the C++/Qt lifetime,
+   threading, and formatting umbrella authority.
+2. [`cn/Qt6_QML_Coding_Style.md`](../cn/Qt6_QML_Coding_Style.md) owns QML-specific additions and must explicitly reference the comment
    guideline instead of duplicating common comment rules.
-3. `Qt_Macro_Layout_Coding_Style.md` owns the placement and order of Qt, QML, and moc macros; it does
+3. [`cn/Qt_Macro_Layout_Coding_Style.md`](../cn/Qt_Macro_Layout_Coding_Style.md) owns the placement and order of Qt, QML, and moc macros; it does
    not decide whether a project requires `Q_OBJECT`.
-4. `Qt6_KDE_API_Parameter_Style.md` owns public API parameter, ownership, view-lifetime, and
+4. [`cn/Qt6_KDE_API_Parameter_Style.md`](../cn/Qt6_KDE_API_Parameter_Style.md) owns public API parameter, ownership, view-lifetime, and
    QML/meta-object boundary rules.
-5. `CPP_Code_Comment_Guidelines.md` owns comment content, coverage, documentation profiles, and
+5. [`cn/CPP_Code_Comment_Guidelines.md`](../cn/CPP_Code_Comment_Guidelines.md) owns comment content, coverage, documentation profiles, and
    documentation verification boundaries.
-6. This document only explains how the AI applies those authorities. Report conflicts and modify an
+6. This document only explains how the AI applies those authorities. Root and English files must not override `cn/`; report conflicts and modify an
    authority only in an explicitly authorized documentation-revision task.
 
 ## 2. Classification and decision priority
@@ -55,7 +59,7 @@ When the project authority explicitly says that every `QObject` subclass must co
 5. Template, nested, header-only, or other moc/build-limited types cannot be silently skipped. Record a
    technical exception with reason, owner, and removal condition, or change the design so the gate is
    executable.
-6. Macro placement and order remain governed by `Qt_Macro_Layout_Coding_Style.md`.
+6. Macro placement and order remain governed by `cn/Qt_Macro_Layout_Coding_Style.md`.
 
 If the project has not published this gate, apply the normal Qt split: a subclass that uses its own
 signals, slots callable through the meta-object, properties, enum metadata, QML/plugin registration,
@@ -251,11 +255,11 @@ void bindWorkerLifetime(Worker *worker)
 
 Related authorities:
 
-- [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md)
-- [`Qt6_QML_Coding_Style.md`](./Qt6_QML_Coding_Style.md)
-- [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md)
-- [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md)
-- [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md)
+- [`cn/Qt6_CPP17_Coding_Style.md`](../cn/Qt6_CPP17_Coding_Style.md)
+- [`cn/Qt6_QML_Coding_Style.md`](../cn/Qt6_QML_Coding_Style.md)
+- [`cn/Qt_Macro_Layout_Coding_Style.md`](../cn/Qt_Macro_Layout_Coding_Style.md)
+- [`cn/Qt6_KDE_API_Parameter_Style.md`](../cn/Qt6_KDE_API_Parameter_Style.md)
+- [`cn/CPP_Code_Comment_Guidelines.md`](../cn/CPP_Code_Comment_Guidelines.md)
 - [`Qt6_CPP17_CLANG-FORMAT`](./Qt6_CPP17_CLANG-FORMAT)
 
 Before delivery, check the task-appropriate subset of:

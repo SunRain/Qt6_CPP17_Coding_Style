@@ -2,8 +2,10 @@
 
 [English](en/AI_CODING_BEHAVIOR.md) | [简体中文](cn/AI_CODING_BEHAVIOR.md)
 
-> 说明：本文档是当前 AI 编码行为规范的中文权威版本，用于约束 AI/agent 的代码生成与
-> 修改。若与其他分发版存在差异，以本文档和项目其他权威规范为准。
+> 兼容入口：完整中文权威为 `cn/AI_CODING_BEHAVIOR.md`；本文仅保留根目录兼容路径。
+
+> 说明：本文档是 `cn/AI_CODING_BEHAVIOR.md` 的根目录兼容入口，用于保留历史路径。
+> 完整中文派生执行规则以 `cn/` 对应文档为准。
 
 > 本文档只解释 AI/agent 如何应用现有项目权威，不重新定义或扩大底层规则。
 
@@ -19,17 +21,17 @@
 
 项目权威关系如下：
 
-1. [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
+1. [`cn/Qt6_CPP17_Coding_Style.md`](./cn/Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
    基础格式总纲。
-2. [`Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md) 只维护 QML 专题增量，并引用
+2. [`cn/Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md) 只维护 QML 专题增量，并引用
    注释规范，不重复维护通用规则。
-3. [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
+3. [`cn/Qt_Macro_Layout_Coding_Style.md`](./cn/Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
    moc 宏的位置、顺序与类体布局，不决定项目是否建立 `Q_OBJECT` 门禁。
-4. [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md) 负责 Public API
+4. [`cn/Qt6_KDE_API_Parameter_Style.md`](./cn/Qt6_KDE_API_Parameter_Style.md) 负责 Public API
    参数、Borrow/Owning、view 生命周期和 QML/meta-object 边界类型。
-5. [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md) 负责注释内容、
+5. [`cn/CPP_Code_Comment_Guidelines.md`](./cn/CPP_Code_Comment_Guidelines.md) 负责注释内容、
    覆盖范围、生成器 profile 和文档验证规则。
-6. 本文只说明 AI 如何应用上述权威；权威之间发生事实冲突时，应报告冲突，并在获得
+6. 本文只说明 AI 如何应用上述权威；根目录与英文文档不得覆盖 `cn/`；权威之间发生事实冲突时，应报告冲突，并在获得
    文档修订授权后修正权威源。
 
 ## 2. 规范分类与执行优先级
@@ -60,7 +62,7 @@
 5. 模板类、嵌套类、header-only 类型或其他 moc/build 无法处理的类型不得静默跳过。
    项目必须记录正式技术例外、理由、责任人和移除条件，或先调整类型/构建设计使门禁
    可执行。没有正式例外时，AI/agent 不得自行豁免。
-6. `Q_OBJECT` 的位置、宏顺序和类体布局仍由 `Qt_Macro_Layout_Coding_Style.md` 决定；
+6. `Q_OBJECT` 的位置、宏顺序和类体布局仍由 `cn/Qt_Macro_Layout_Coding_Style.md` 决定；
    本节只决定“是否必须存在”。
 
 如果项目尚未正式发布该门禁，则恢复普通分层：类型自身使用 signal、slot、property、
@@ -263,13 +265,13 @@ void bindWorkerLifetime(Worker *worker)
 
 ## 6. 相关文档、验证与版本联动
 
-相关权威文档：
+相关中文权威与机器配置：
 
-- [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md)
-- [`Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md)
-- [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md)
-- [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md)
-- [`CPP_Code_Comment_Guidelines.md`](./CPP_Code_Comment_Guidelines.md)
+- [`cn/Qt6_CPP17_Coding_Style.md`](./cn/Qt6_CPP17_Coding_Style.md)
+- [`cn/Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md)
+- [`cn/Qt_Macro_Layout_Coding_Style.md`](./cn/Qt_Macro_Layout_Coding_Style.md)
+- [`cn/Qt6_KDE_API_Parameter_Style.md`](./cn/Qt6_KDE_API_Parameter_Style.md)
+- [`cn/CPP_Code_Comment_Guidelines.md`](./cn/CPP_Code_Comment_Guidelines.md)
 - [`Qt6_CPP17_CLANG-FORMAT`](./Qt6_CPP17_CLANG-FORMAT)
 
 提交前按任务范围检查：
@@ -284,4 +286,4 @@ void bindWorkerLifetime(Worker *worker)
 - 只有明确的文档发布或同步任务才联动根目录、`cn/`、`en/`、版本、日期和链接。
 
 **文档包版本**：v1.2.0
-**最后更新**：2026-08-11
+**最后更新**：2026-08-13

@@ -1,9 +1,12 @@
 # AI 生成 C++/Qt/QML 代码注释规范
 
+> 兼容入口：中文专题权威为 [`cn/CPP_Code_Comment_Guidelines.md`](cn/CPP_Code_Comment_Guidelines.md)；
+> 英文镜像位于 [`en/CPP_Code_Comment_Guidelines.md`](en/CPP_Code_Comment_Guidelines.md)。
+
 [English](en/CPP_Code_Comment_Guidelines.md) | [简体中文](cn/CPP_Code_Comment_Guidelines.md)
 
-> 说明：本文档是当前 C++/Qt/QML 注释规范的中文权威版本，用于约束 AI/agent 生成代码。
-> 若与其他分发版存在差异，以本文档和项目其他权威规范为准。
+> 说明：本文档是 `cn/CPP_Code_Comment_Guidelines.md` 的根目录兼容入口。完整中文注释
+> 规范以 `cn/` 对应文档为准。
 
 ## 1. 适用范围与权威关系
 
@@ -22,16 +25,16 @@
 
 ### 1.2 权威关系
 
-1. [`Qt6_CPP17_Coding_Style.md`](./Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
+1. [`cn/Qt6_CPP17_Coding_Style.md`](./cn/Qt6_CPP17_Coding_Style.md) 是 C++、Qt 生命周期、线程和
    基础格式总纲。
-2. 本文只负责注释内容、覆盖范围和生成文档规则。
+2. [`cn/CPP_Code_Comment_Guidelines.md`](./cn/CPP_Code_Comment_Guidelines.md) 负责注释内容、覆盖范围和生成文档规则；本文只同步呈现该专题。
 3. [`Qt6_QML_Coding_Style.md`](./cn/Qt6_QML_Coding_Style.md) 只补充 QML 语境，并显式引用
    本文，不重复维护通用注释规则。
-4. [`Qt_Macro_Layout_Coding_Style.md`](./Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
+4. [`cn/Qt_Macro_Layout_Coding_Style.md`](./cn/Qt_Macro_Layout_Coding_Style.md) 负责 Qt、QML 和
    moc 宏的位置，不负责判断类型是否需要相应宏。
-5. [`Qt6_KDE_API_Parameter_Style.md`](./Qt6_KDE_API_Parameter_Style.md) 负责 Public API
+5. [`cn/Qt6_KDE_API_Parameter_Style.md`](./cn/Qt6_KDE_API_Parameter_Style.md) 负责 Public API
    参数、Borrow/Owning、view 生命周期和 QML/meta-object 边界类型。
-6. [`AI_CODING_BEHAVIOR.md`](./AI_CODING_BEHAVIOR.md) 只说明 AI 如何应用上述权威，
+6. [`cn/AI_CODING_BEHAVIOR.md`](./cn/AI_CODING_BEHAVIOR.md) 只说明 AI 如何应用上述权威，
    不得重新定义或扩大底层规则。
 
 `Q_OBJECT` 是否必须存在，由总纲中的 Qt 技术条件或已发布项目门禁决定；本文只规定元对象、
@@ -588,7 +591,7 @@ TODO/FIXME 必须包含真实的 bug ID、owner 或其他可追踪上下文之�
 - 先写最重要的契约或原因，再补真实且适用的限制。
 - 能通过命名或结构表达的内容留在代码中。
 - 缺少事实时不猜测；保留事实缺口并在交付说明中报告。
-- 实现任务不得自行修改权威文档。只有明确的文档修订任务才能更新本文或相关总纲。
+- 实现任务不得自行修改权威文档。只有明确的文档修订任务才能更新 `cn/` 中的注释专题或相关总纲，再同步本文。
 
 ### 9.5 验证并停止
 
@@ -616,4 +619,4 @@ TODO/FIXME 必须包含真实的 bug ID、owner 或其他可追踪上下文之�
 
 **文档包版本**：v1.2.0
 
-**最后更新**：2026-08-11
+**最后更新**：2026-08-13

@@ -1,4 +1,14 @@
-# Gamepad UI Toolkit / Linux Input and Gamepad Library Comment Guidelines
+# Gamepad UI Toolkit / Linux Input and Gamepad Library Comment Addendum
+
+English (translation) | [Chinese domain addition](../cn/Gamepad_Input_Comment_Guidelines.md) |
+[Root compatibility entry](../Gamepad_Input_Comment_Guidelines.md)
+
+> Translation of the Chinese domain addition [`cn/Gamepad_Input_Comment_Guidelines.md`](../cn/Gamepad_Input_Comment_Guidelines.md).
+> This file does not independently define comment form, scope, or documentation tooling.
+>
+> Comment syntax follows the project's selected QDoc, Doxygen, KApiDox, or no-generator profile.
+> Do not enable a Doxygen/KApiDox toolchain merely because of this document. In examples, `///`
+> means a stable API-contract comment; use the markers required by the selected profile.
 
 ## Core Principles
 
@@ -8,7 +18,9 @@ Do not use comments to restate literal code behavior. If the code is directly un
 
 ## Comment Form
 
-Use Doxygen style for public types, public functions, and stable contracts:
+Document public types, public functions, and stable contracts according to the
+[Chinese comment authority](../cn/CPP_Code_Comment_Guidelines.md) and the project's documentation
+profile. The following example uses Doxygen style:
 
 ```cpp
 /// @brief Packs key and relevant modifiers into a stable chord code.

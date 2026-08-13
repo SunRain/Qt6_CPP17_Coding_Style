@@ -1,17 +1,23 @@
 # Qt Macro Layout Coding Style
 
-English | 简体中文 | Source
+> Translation of the Chinese topic authority [`cn/Qt_Macro_Layout_Coding_Style.md`](../cn/Qt_Macro_Layout_Coding_Style.md).
+> The root-level file is a compatibility entry and must not override `cn/`.
 
-> Note: This document is the English translation of the current Qt macro layout guideline. If there is any discrepancy, the package baseline prevails.
+English (translation) | [Chinese authority](../cn/Qt_Macro_Layout_Coding_Style.md) |
+[Root compatibility entry](../Qt_Macro_Layout_Coding_Style.md)
 
-This guideline belongs to `Qt6_CPP17_Coding_Style.md` and expands its Qt meta-object / QML / moc macro-layout topic.
+> Authority: the complete Chinese macro-layout topic is under `cn/`. This file is a translation;
+> the root-level file is a compatibility entry, and neither may override `cn/`.
+
+This translation mirrors `cn/Qt_Macro_Layout_Coding_Style.md`; that Chinese topic belongs to the
+`cn/Qt6_CPP17_Coding_Style.md` umbrella.
 
 Scope: Qt 6 / KDE-style C++ code, especially public headers, QML toolkits, and reusable component libraries consumed downstream.
 
 Authority boundaries:
-- Macro placement, class-body layout, QML registration macros, metatype macros, d-pointer macros, and logging macros are owned by this document.
-- Public API parameter types, Borrow / Owning, view lifetimes, and QML/meta-object boundary types are owned by `Qt6_KDE_API_Parameter_Style.md`; this document only references those conclusions.
-- Baseline formatting, naming, lifetime, threading, and error handling are owned by `Qt6_CPP17_Coding_Style.md`.
+- Macro placement, class-body layout, QML registration macros, metatype macros, d-pointer macros, and logging macros are owned by `cn/Qt_Macro_Layout_Coding_Style.md`.
+- Public API parameter types, Borrow / Owning, view lifetimes, and QML/meta-object boundary types are owned by `cn/Qt6_KDE_API_Parameter_Style.md`; this translation only references those conclusions.
+- Baseline formatting, naming, lifetime, threading, and error handling are owned by `cn/Qt6_CPP17_Coding_Style.md`.
 
 ## 1. Core Principles
 
@@ -340,7 +346,7 @@ Requirements:
 
 - `Q_DECLARE_METATYPE` must appear after the complete type definition.
 - Namespace types normally use fully qualified names outside the namespace.
-- If the type is used in queued connections, ensure it is copyable/destructible and register the metatype when needed.
+- Queued-payload transferability and the timing of `qRegisterMetaType<T>()` follow the Chinese umbrella's §6.2.3 and §6.3.4; this topic only defines the placement of `Q_DECLARE_METATYPE`.
 - Do not register views or raw borrowed-lifetime objects as cross-thread payloads.
 
 ## 13. Logging Macro Rules
@@ -454,13 +460,15 @@ private:
 };
 ```
 
-## 15. Comment Rules
+## 15. Comment Rules (Macro-Layout Addendum Only)
 
-- Class descriptions use `/// @brief` or concise Doxygen comments.
-- QML-facing classes, roles, stable strings, trace payloads, error codes, and lifetime boundaries must be commented.
-- Do not add per-item comments to simple `Q_PROPERTY`, simple signals, or ordinary getters/setters.
-- Comments explain contracts, boundaries, and reasons. They should not explain Qt syntax.
-- Keep each comment concise; for Chinese comments, prefer no more than 80 characters per line.
+The [Chinese comment authority](../cn/CPP_Code_Comment_Guidelines.md) exclusively defines comment
+content, coverage, QDoc / Doxygen / KApiDox / no-generator profiles, and validation. This section
+contains only macro-layout additions:
+
+- When macro grouping, order, or placement departs from the default template for a non-obvious reason, document the constraint source and why the layout must be preserved.
+- When a `Q_PROPERTY`, QML registration macro, metatype, d-pointer, or logging macro carries a stable contract that its declaration does not make clear, document the contract or boundary rather than the macro syntax.
+- Do not add per-item comments to simple properties, signals, getters/setters, or self-evident macro placement.
 
 ## 16. Forbidden Patterns
 

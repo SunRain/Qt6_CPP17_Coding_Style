@@ -1,15 +1,19 @@
 # Qt6 / KDE 风格共享库 Public API 参数规范（`QString` owning + view borrow）
 
-本规范隶属 `Qt6_CPP17_Coding_Style.md`，是 Public API 参数语义的专题展开。
+> 兼容入口：中文专题权威为 [`cn/Qt6_KDE_API_Parameter_Style.md`](cn/Qt6_KDE_API_Parameter_Style.md)。
+> 本文件保留根目录路径兼容性；英文镜像位于 [`en/Qt6_KDE_API_Parameter_Style.md`](en/Qt6_KDE_API_Parameter_Style.md)。
+
+本兼容文档同步呈现 `cn/Qt6_KDE_API_Parameter_Style.md`；该中文专题隶属
+`cn/Qt6_CPP17_Coding_Style.md` 总纲。
 
 适用范围：对外导出的 Qt6/KF6 共享库（public headers / exported symbols），以及包含 QML 绑定（`Q_PROPERTY` / `Q_INVOKABLE` / signals/slots）的接口层。
 
 目标：对外接口清晰可维护；内部实现高性能且简洁；允许在演进中逐步引入 view（borrow）能力，同时避免公共头文件的重载陷阱。
 
-权威边界：
-- Public API 参数类型、Borrow / Owning、view 生命周期、重载控制和兼容性，以本文为唯一权威。
-- Qt / QML / moc 宏位置与类体布局，以 `Qt_Macro_Layout_Coding_Style.md` 为唯一权威。
-- 基础格式、命名、生命周期、线程、错误处理，以 `Qt6_CPP17_Coding_Style.md` 为总纲。
+权威边界（完整规则以对应 `cn/` 文件为准）：
+- Public API 参数类型、Borrow / Owning、view 生命周期、重载控制和兼容性，以 `cn/Qt6_KDE_API_Parameter_Style.md` 为专题权威。
+- Qt / QML / moc 宏位置与类体布局，以 `cn/Qt_Macro_Layout_Coding_Style.md` 为专题权威。
+- 基础格式、命名、生命周期、线程、错误处理，以 `cn/Qt6_CPP17_Coding_Style.md` 为总纲。
 - 代码示例统一使用无关键字宏写法：`Q_SIGNALS:`、`Q_SLOTS`、`Q_EMIT`。
 
 版本/前置条件（建议在项目内明确基线）：
@@ -550,7 +554,7 @@ connect(sender, &Sender::nameChanged,
 
 ## 7) 指针、智能指针与边界所有权
 
-> 本节补充 Public API、callback、插件和 QML/C++ 边界的所有权表达；C++ 总体生命周期、控制块和 QObject 销毁规则以 `Qt6_CPP17_Coding_Style.md` 为准。
+> 本节同步呈现 Public API、callback、插件和 QML/C++ 边界的所有权规则；C++ 总体生命周期、控制块和 QObject 销毁规则以 `cn/Qt6_CPP17_Coding_Style.md` 为准。
 
 ### 7.1 借用与 owning 参数
 
@@ -573,7 +577,10 @@ connect(sender, &Sender::nameChanged,
 - QPointer 是非 owning guarded pointer，不延长生命周期、不提供锁、不提供线程同步，也不授权跨线程访问。
 - QPointer 的判空和解引用必须在对象 affinity thread 内完成，两者之间不得跨越重入、信号、事件处理或未知 callback。
 - 跨线程访问时向对象所属线程投递命令，并在命令执行时重新检查 QPointer。
-- QObject 的所有方法调用和状态访问必须遵守 thread affinity。
+- **通用默认**：event-driven 或有可变状态的 QObject，以及未明确标记为 thread-safe 的方法，均在对象 affinity thread 中访问；GUI 对象只能在 GUI 线程访问。
+- **技术例外**：Qt 文档明确标记为 thread-safe 的方法可以按其合同跨线程调用；该保证不自动扩展到同一对象的其他方法或可变状态。
+- **必须区分**：reentrant 只保证不同线程可以并发使用各自实例，不代表同一实例自动线程安全。
+- **受控例外**：同一实例跨线程访问只有在 API 合同明确允许、生命周期稳定、全部相关共享状态有外部同步且不绕过事件循环、计时器或 GUI 线程约束时成立，并须在评审中记录依据。
 - Qt 信号槽、计时器和异步 callback 必须提供 context，使连接在 context 析构时自动失效。
 - callback 观察外部 QObject 时优先捕获 QPointer；只有 callback 本身确为 co-owner 时才捕获强 shared owner，并必须通过 weak pointer、显式断连或等价结构防止循环引用。
 

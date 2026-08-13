@@ -1,9 +1,12 @@
 # C++/Qt/QML Code Comment Guidelines
 
+> Translation of the Chinese topic authority [`cn/CPP_Code_Comment_Guidelines.md`](../cn/CPP_Code_Comment_Guidelines.md).
+> The `cn/` text takes precedence over this file.
+
 [English](./CPP_Code_Comment_Guidelines.md) | [Simplified Chinese](../cn/CPP_Code_Comment_Guidelines.md) |
 [Source](../CPP_Code_Comment_Guidelines.md)
 
-> This document defines comment scope, content, documentation profiles, and AI/agent boundaries for
+> This document is the English translation of the Chinese topic authority. It defines comment scope, content, documentation profiles, and AI/agent boundaries for
 > C++/Qt/QML projects. It does not enable a documentation toolchain or create an API/ABI promise.
 
 ## 1. Scope and authority
@@ -22,15 +25,17 @@ expand API/ABI commitments, or synchronize a complete documentation package with
 
 Authority order:
 
-1. `Qt6_CPP17_Coding_Style.md` is the C++/Qt lifetime, threading, and formatting baseline.
-2. This document owns comment content, coverage, and documentation-generation rules.
-3. `Qt6_QML_Coding_Style.md` adds QML-specific context and must explicitly reference this guideline;
+1. [`cn/Qt6_CPP17_Coding_Style.md`](../cn/Qt6_CPP17_Coding_Style.md) is the C++/Qt lifetime,
+   threading, and formatting umbrella authority.
+2. [`cn/CPP_Code_Comment_Guidelines.md`](../cn/CPP_Code_Comment_Guidelines.md) owns comment content,
+   coverage, and documentation-generation rules; this file only translates that topic.
+3. [`cn/Qt6_QML_Coding_Style.md`](../cn/Qt6_QML_Coding_Style.md) adds QML-specific context and must explicitly reference the comment authority;
    it does not duplicate common comment rules.
-4. `Qt_Macro_Layout_Coding_Style.md` owns the placement and order of Qt/moc macros, not the decision
+4. [`cn/Qt_Macro_Layout_Coding_Style.md`](../cn/Qt_Macro_Layout_Coding_Style.md) owns the placement and order of Qt/moc macros, not the decision
    whether a type needs a macro.
-5. `Qt6_KDE_API_Parameter_Style.md` owns public API parameter, ownership, view-lifetime, and
+5. [`cn/Qt6_KDE_API_Parameter_Style.md`](../cn/Qt6_KDE_API_Parameter_Style.md) owns public API parameter, ownership, view-lifetime, and
    QML/meta-object boundary rules.
-6. `AI_CODING_BEHAVIOR.md` explains how AI applies these authorities and must not redefine them.
+6. [`cn/AI_CODING_BEHAVIOR.md`](../cn/AI_CODING_BEHAVIOR.md) explains how AI applies these authorities and must not redefine them.
 
 The presence of `Q_OBJECT` does not create an automatic comment obligation. Whether the macro is
 required comes from Qt technical conditions or a published project gate.

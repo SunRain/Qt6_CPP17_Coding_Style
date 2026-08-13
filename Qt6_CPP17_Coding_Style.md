@@ -1,9 +1,13 @@
 # Qt6_CPP17_Coding_Style.md
 
+> 兼容入口：完整中文规范以 [`cn/Qt6_CPP17_Coding_Style.md`](cn/Qt6_CPP17_Coding_Style.md)
+> 为权威；本文仅保留根目录兼容内容。英文对应文档位于
+> [`en/Qt6_CPP17_Coding_Style.md`](en/Qt6_CPP17_Coding_Style.md)，不得独立覆盖 `cn/` 规则。
+
 ## 指导原则
 
 ---
-你=资深 Qt/KDE与现代 C++17 开发者，以下条款为强制最高优先级；任何冲突以序号小者为准。
+你=资深 Qt/KDE 与现代 C++17 开发者。应用本规范时必须先识别规则来源和强度；只有明确标记为“必须”“禁止”或“项目门禁”的条款才构成阻断，不得仅因章节编号更小而把推荐项升级为技术要求。
 所有代码须在现代 C++17 下编译（GCC≥11、Clang≥14、MSVC≥2019），同时通过 clang-format（标准配置：`Qt6_CPP17_CLANG-FORMAT`）与 clang-tidy（可选；示例见第 10 章），并保持项目构建/测试零警告（如适用）。详细的代码规范可以参考：
 - https://wiki.qt.io/Qt_Coding_Style
 - https://wiki.qt.io/Coding_Conventions
@@ -11,20 +15,30 @@
 
 ---
 
-## 规范包关系（一纲两专题）
+## 规范包关系（中文权威与兼容入口）
 
-本文件是 Qt6 / KDE / C++17 代码规范包的唯一总纲，负责基础编码规则、生命周期、线程、错误处理、工具配置与通用 Qt 约定。
+`cn/Qt6_CPP17_Coding_Style.md` 是 Qt6 / KDE / C++17 代码规范包的中文总纲。本文件是根目录兼容入口，负责保留历史路径可发现性，不独立定义与中文权威冲突的规则。
 
-两份专题文档作为本总纲的展开，不再与总纲重复维护全文规则：
+专题权威、领域增量和派生执行文档均以 `cn/` 对应文件为准：
 
-- `Qt_Macro_Layout_Coding_Style.md`：Qt / QML / moc 宏布局的唯一权威，回答 `Q_OBJECT`、`Q_PROPERTY`、`Q_SIGNALS:`、`Q_SLOTS`、`Q_ENUM`、metatype、d-pointer、日志宏等放在哪里。
-- `Qt6_KDE_API_Parameter_Style.md`：Public API 参数语义的唯一权威，回答 Borrow / Owning、view 生命周期、QML/meta-object 边界类型、重载控制与兼容性。
+- `cn/Qt6_QML_Coding_Style.md`：QML 语言与运行时规则。
+- `cn/Qt_Macro_Layout_Coding_Style.md`：Qt / QML / moc 宏布局。
+- `cn/Qt6_KDE_API_Parameter_Style.md`：Public API 参数语义、所有权、线程和边界类型。
+- `cn/CPP_Code_Comment_Guidelines.md`：注释内容、覆盖范围和文档工具链。
+- `cn/Gamepad_Input_Comment_Guidelines.md`：输入与手柄领域增量。
+- `cn/AI_CODING_BEHAVIOR.md` 与 `cn/Qt6_KDE_API_Parameter_Style.system-prompt.md`：派生执行文档。
 
-当专题范围内的细节与本文件摘要不一致时，以对应专题为准；本文件只保留摘要和跳转引用，避免三份文档规则漂移。
+发生差异时，以 `cn/` 对应中文权威为准；根目录和 `en/` 文件必须同步更新，不得反向覆盖 `cn/`。
 
-本总纲同时是 `Q_OBJECT` 存在性项目门禁的权威来源：项目内所有 `QObject` 派生类均必须
+### 规则来源与强度
+
+- **Qt/KDE 技术事实与硬要求**：来自语言、编译器、Qt/KDE API 合同及工具链约束；违反时属于技术错误。
+- **通用默认建议**：Qt/KDE 与一般开源 Qt 项目的稳健默认，使用“应该”“推荐”或“默认”标识；有充分项目证据时可以偏离。
+- **项目严格门禁**：在上游最低要求之上提高的约束，必须明确标记“本项目提高约束”或“项目门禁”，只适用于采纳该规范包的项目，不得表述为 Qt/KDE 的普遍事实。
+
+中文总纲同时是 `Q_OBJECT` 存在性项目门禁的权威来源：项目内所有 `QObject` 派生类均必须
 包含 `Q_OBJECT`。这是本项目把 Qt 上游强烈建议提升为可执行门禁的政策，不应表述为 Qt
-的普遍技术要求；宏的位置和顺序仍由 `Qt_Macro_Layout_Coding_Style.md` 决定。
+的普遍技术要求；宏的位置和顺序仍由 `cn/Qt_Macro_Layout_Coding_Style.md` 决定。
 
 ## 0 总览
 - 编译器：GCC ≥ 11 | Clang ≥ 14 | MSVC ≥ 2019
@@ -340,7 +354,7 @@ Foo::Foo(int a, int b)
 - **项目自定义加严约束（强制）**：项目 C++ 代码中禁止 `throw`、`try`、`catch`；不得以异常作为 API 错误返回机制或控制流。该条款是本项目自行提高的约束，不应表述为 Qt 或 KDE 的普遍技术要求。
 - **必须**：任何“可能失败”的函数都要**显式表达失败**；禁止通过隐式默认值吞掉错误。
 - **必须**：API 错误使用错误码、错误状态、`errorString()` 等显式接口表达；诊断文本不能替代结构化错误状态。
-- **必须**：失败返回值必须带 `[[nodiscard]]`，防止调用方忽略失败（例如 `[[nodiscard]] bool ...`、`[[nodiscard]] std::optional<T> ...`）。
+- **必须**：项目自有 API 中，若忽略失败返回值会造成错误丢失或继续执行错误路径，必须使用 `[[nodiscard]]`（例如 `[[nodiscard]] bool ...`、`[[nodiscard]] std::optional<T> ...`）；不得机械地给所有 `bool`、`optional`、override 或允许忽略结果的查询接口添加该属性。
 - **必须**：断言只用于“编程错误”（前置条件/不变量被破坏，理论上不应发生）；对用户输入、I/O、网络、插件加载等可恢复错误，必须走返回值错误路径。
 - **应该**：错误信息的归属明确：底层库函数**不应**无条件 `qWarning()` 噪声刷屏；在“边界层”（UI/命令/服务入口）统一记录日志或转为用户可见信息。
 
@@ -412,10 +426,13 @@ Foo::Foo(int a, int b)
 | `Q_OBJECT` | 项目门禁：每个 `QObject` 派生类均包含 | 省略宏或未经记录自行豁免 |
 | 信号槽连接 | `connect(sender, &Sender::valueChanged, receiver, &Receiver::update);` | `SIGNAL/SLOT` 字符串 |
 | 字符串字面量 | `QStringLiteral("hello")` 或 `u"hello"_qs` | `QString("hello")` |
-| 线程耗时 | `QtConcurrent::run(&Worker::doWork)` | 手动 `new Thread` |
+| 后台任务 | 无状态/可分块任务使用 `QtConcurrent` 或 `QThreadPool`；需要事件循环或线程亲和性的长期 worker 使用 worker-object + `QThread` | 不分析任务模型就统一套用单一路线 |
 | QObject 派生语义 | 指针语义：仅用指针/引用传递与存储 | `QVector<Foo *> foos;` | `QVector<Foo> foos;` |
 | 内存管理 | 值语义/RAII、parent tree、确定安全点直接析构、`deleteLater()` | 无明确 owner、重复接管、错线程销毁 |
 
+- **无状态或可分块任务**：优先使用 `QtConcurrent` 或 `QThreadPool`，避免为一次性工作创建长期线程对象。
+- **长期 worker**：任务需要事件循环、计时器、异步 I/O 或稳定线程亲和性时，默认使用 worker-object + `QThread`，并明确启动、停止和销毁合同。
+- **选择原则**：先按任务状态、取消、事件循环和亲和性需求选模型；不得把“耗时”机械等同于 `QtConcurrent`。
 - **规则强度**：**必须/禁止**用于内存安全、生命周期、线程正确性和单一所有权；**应该/默认**用于 Qt 6、KDE、QML library 与现代 C++17 推荐；高于 Qt/KDE 最低要求的条款必须标记为**本项目提高约束**。
 - **基本原则**：必须先确定值语义、独占所有权、共享生命周期或借用观察，再选择指针类型；禁止按 Qt/std 类型家族预先选择。
 - 能使用值对象、栈对象或直接成员表达生命周期时，不应进行堆分配，也不应使用智能指针。
@@ -653,7 +670,7 @@ void startWorker(QObject *owner)
 - **必须**：所有 Qt C++ 代码统一使用无关键字宏写法：`Q_SIGNALS:`、`Q_SLOTS`、`Q_EMIT`；禁止新增 `signals:`、`slots:`、裸 `emit`。
 - **必须**：使用 lambda/functor 连接时必须提供 **context**（通常为接收者/owner），禁止使用“无 context”的 functor connect 重载。
 - **必须**：lambda/functor 不得捕获可能先于连接断开而析构的裸指针；若捕获 `this`，context 必须是 `this`（或更长生命周期 owner），并优先捕获 `QPointer<T>` 做弱引用保护。
-- **推荐**：重复连接点（可能被调用多次）使用 `Qt::UniqueConnection` 防止重复连接；需要手动断开时保存 `QMetaObject::Connection` 并在合适时机 `disconnect()`。
+- **推荐**：成员函数之间的重复连接点可以使用 `Qt::UniqueConnection`；该标志不适用于 lambda、非成员函数和 functor。lambda/functor 连接必须通过保存并显式断开 `QMetaObject::Connection`、重建前先断开，或可审计的幂等门禁防止重复连接。
 
 示例（推荐/禁止）：
 ```cpp
@@ -667,21 +684,26 @@ connect(sender, &Sender::valueChanged, [this](int v) { onValue(v); });
 #### 6.2.2 线程语义（强制）
 
 - **必须**：不得在非 GUI 线程访问 GUI 对象；GUI 更新必须回到 GUI 线程（queued connection 或 `QMetaObject::invokeMethod`）。
-- **必须**：当 sender/receiver 明确跨线程（或 receiver 可能 `moveToThread()`）时，连接必须显式指定 `Qt::QueuedConnection`。
+- **默认**：连接使用 `Qt::AutoConnection`；Qt 会在信号发射时根据接收者线程亲和性选择 direct 或 queued 投递，跨线程本身不要求显式写 `Qt::QueuedConnection`。
+- **必须**：只有合同要求固定异步投递时，才显式指定 `Qt::QueuedConnection` 并说明原因。
 - **禁止**：跨线程使用 `Qt::DirectConnection`（除非 slot 完全线程安全且不触及 GUI/Qt 对象线程亲和性，且在评审中说明理由）。
 - **禁止（默认）**：`Qt::BlockingQueuedConnection`，除非有明确同步需求并证明不会死锁（需要评审说明）。
 
-#### 6.2.3 queued 参数类型（强制）
+#### 6.2.3 queued 参数类型与注册（强制 + 按需）
 
-- **必须**：queued connection 传递的自定义类型必须可被 Qt 元类型系统识别：至少 `Q_DECLARE_METATYPE(T)`，并保证在使用前完成注册（推荐在 `main()` 或模块初始化中 `qRegisterMetaType<T>()`）。
+- **必须**：queued 投递的参数类型在连接或动态调用所需位置必须是完整类型，满足对应投递路径的复制/移动与析构要求，并为 `QMetaType` 所知；不得把悬空 view 或其他短生命周期借用对象作为异步 payload。
+- **必须**：自定义值类型尚未由 Qt 自动声明为元类型时，在完整定义之后使用 `Q_DECLARE_METATYPE(T)`，使模板化元类型 API 和 `QVariant` 能识别该类型。
+- **规范默认**：本规范未统一规定最低 Qt 6 minor。自定义类型只要可能经 queued connection 或跨线程 `Qt::AutoConnection` 传递，就必须在首次建立相关连接前调用一次无参数 `qRegisterMetaType<T>()`；不得把较新 Qt 版本对特定 typed-connect 路径的自动处理泛化到全部 Qt 6 基线。
+- **按需**：旧式字符串连接、按类型名称进行的动态调用、插件协议或兼容别名还需要验证运行时名称能被正确解析。新增示例不得使用带显式名称的 `qRegisterMetaType<T>("T")` 旧重载；确有旧协议兼容需求时，必须按项目实际 Qt 基线选择受支持的注册 API 并增加运行测试。
+- **必须**：注册发生在明确的程序或模块初始化路径中，且早于首次相关连接或调用；不得依赖不可审计的偶发静态初始化顺序。
 
 示例（自定义类型作为 queued 参数）：
 ```cpp
 struct Payload { int id = 0; };
 Q_DECLARE_METATYPE(Payload)
 
-// 在程序启动或模块初始化处（一次即可）
-// qRegisterMetaType<Payload>("Payload");
+// 在程序或模块初始化处，早于首次可能 queued 的连接。
+qRegisterMetaType<Payload>();
 ```
 
 ### 6.3 元对象系统与属性（Q_OBJECT / Q_PROPERTY / 元类型）（项目门禁 + 强制 + 推荐）
@@ -705,9 +727,13 @@ Qt 的最低技术要求是：使用自身信号、属性、元对象可调用�
 （枚举/属性）但不需要 `QObject` 生命周期、信号槽的值类型，推荐使用 `Q_GADGET`；需要
 在命名空间暴露枚举时使用 `Q_NAMESPACE`（配合 `Q_ENUM_NS`/`Q_FLAG_NS`）。
 
-#### 6.3.2 Q_PROPERTY（强制）
+#### 6.3.2 Q_PROPERTY（强制 + 推荐）
 
-- **必须**：可变属性必须提供 `NOTIFY`；setter 必须在值未变化时早返回，避免无意义信号与绑定抖动。
+- **必须**：需要让 QML 绑定、属性绑定或其他观察者感知变化的属性，必须提供有效的变化通知机制，并避免值未变化时产生无意义通知。
+- **默认**：传统属性使用 `NOTIFY`；手写传统 setter 时值未变化早返回，再修改状态并通知。
+- **必须**：bindable property 的 setter 每条路径都写入底层 bindable property；不得机械套用传统 setter 的相等早返回，否则可能无法移除既有 binding。
+- **受控路线**：只有项目 Qt minor 基线、moc、qmllint 和运行测试均验证通过时，才使用 `BINDABLE`；未经验证不得据此删除 `NOTIFY`。
+- **不强制**：只用于反射、内部元数据或合同明确不需要观察变化的属性，不一律要求 `NOTIFY`；必须确保调用方不会依赖不存在的变化通知。
 - **必须**：属性的线程亲和性要明确：若属性可能被跨线程更新，必须通过 queued 方式切回对象所属线程再修改并 `Q_EMIT`。
 - **推荐**：QML-facing、public stable、明确不允许派生类覆盖的属性写 `FINAL`；需要派生类扩展、测试替身覆盖或 API 仍在演进中的属性不强制 `FINAL`。
 
@@ -739,9 +765,11 @@ private:
 - **推荐**：枚举使用 `enum class`，并用 `Q_ENUM`/`Q_ENUM_NS` 暴露到元对象系统，便于 QML/调试/反射。
 - **推荐**：位标志使用 `QFlags` + `Q_FLAG`/`Q_FLAG_NS`，并通过 `Q_DECLARE_FLAGS`/`Q_DECLARE_OPERATORS_FOR_FLAGS` 统一运算符。
 
-#### 6.3.4 元类型注册（强制）
+#### 6.3.4 元类型可用性与运行时注册（强制 + 按需）
 
-- **必须**：任何用于 queued connection 参数、`QVariant` 存储、QML 边界（属性/信号参数/方法参数）的自定义类型必须注册为元类型（见 6.2.3）；跨模块时需确保注册发生在使用方可达路径上，避免“只在某个 .cpp 静态初始化注册导致偶发缺失”。
+- **必须**：自定义类型用于 `QVariant` 或模板化元类型 API 时，必须为 `QMetaType` 所知；类型未由 Qt 自动声明时，在完整定义之后使用 `Q_DECLARE_METATYPE(T)`。
+- **必须**：queued connection 参数遵循 6.2.3 的完整性、生命周期和可传递性要求；自定义类型只要可能经 queued 或跨线程 `Qt::AutoConnection` 传递，就在首次相关连接前调用无参数 `qRegisterMetaType<T>()`。按名称动态解析的兼容路径另行验证类型名称。
+- **必须**：QML 属性、信号参数和方法参数还要满足 QML 类型系统与边界类型要求；C++ 元类型声明或运行时注册本身不等于已经完成 QML 类型注册。
 
 ---
 
@@ -879,6 +907,8 @@ clang-tidy 只负责检查词法命名。`PublicMemberPrefix: ''` 不授权任�
 - [ ] include 顺序 & guard 正确
 - [ ] clang-format --dry-run 无差异
 - [ ] clang-tidy 零警告
+- [ ] 适用条款已区分 Qt/KDE 技术事实、通用默认建议和本项目严格门禁
+- [ ] 总纲、专题权威、领域增量、派生执行文档与机器配置之间没有反向覆盖
 - [ ] 无异常/RTTI/dynamic_cast
 - [ ] 类型在命名前已完成直接字段模型授权；`class/struct`、后缀和继承关系未被当作自动授权
 - [ ] 获准的 record-like 与内部 PIMPL/shared-data 类型，其 public 非静态直接字段使用无前缀 lowerCamelCase
@@ -895,15 +925,16 @@ clang-tidy 只负责检查词法命名。`PublicMemberPrefix: ''` 不授权任�
 - [ ] 本项目门禁：每个 `QObject` 派生类显式使用 `Q_DISABLE_COPY_MOVE(Class)`
 - [ ] QObject ownership、direct-delete、`deleteLater()`、shared-owned QObject、worker shutdown 和 QPointer 规则已检查
 - [ ] 非 `QObject` 独占所有权默认使用 `std::unique_ptr`
-- [ ] 线程耗时任务用 QtConcurrent
-- [ ] 无异常：不新增 `throw`/`try`/`catch`；可能失败的 API 明确失败表达，并用 `[[nodiscard]]` 防忽略
-- [ ] 信号槽：统一使用 `Q_SIGNALS:` / `Q_SLOTS` / `Q_EMIT`；lambda/functor connect 必须带 context；跨线程显式 `Qt::QueuedConnection`；queued 参数类型已做元类型注册
-- [ ] 元对象：`Q_PROPERTY` 可变属性必须有 `NOTIFY`，setter 仅在变更时 `Q_EMIT`；自定义类型用于 QVariant/QML 时已注册
+- [ ] 后台任务已按模型选型：无状态/可分块任务使用 QtConcurrent/QThreadPool；长期 affinity worker 使用 worker-object + QThread
+- [ ] 无异常：不新增 `throw`/`try`/`catch`；忽略会丢失错误的项目返回值使用 `[[nodiscard]]`
+- [ ] 信号槽：lambda/functor connect 带 context；`Qt::UniqueConnection` 只用于成员函数连接；默认 `Qt::AutoConnection`
+- [ ] queued 参数：自定义类型在首次可能 queued 的连接前调用无参数 `qRegisterMetaType<T>()`
+- [ ] 元对象：传统 setter 相等时早返回；bindable setter 每条路径写入底层 property；`BINDABLE` 合同已按项目 Qt 基线验证
 ```
 
 ---
 
 **文档包版本**：v1.2.0
-**最后更新**：2026-08-11
+**最后更新**：2026-08-13
 
 ---

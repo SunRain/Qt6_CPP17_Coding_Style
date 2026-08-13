@@ -1,8 +1,9 @@
 # Qt6_QML_Coding_Style（中文）
 
-English | 简体中文 | 原文
+[English translation](../en/Qt6_QML_Coding_Style.md) | 简体中文（专题权威）
 
-> 说明：本文档为当前 Qt6 / QML 代码规范的中文整理版（用于阅读与分发）。若与规范基线存在差异，以规范基线为准。
+> 权威关系：本文是 `cn/` 规范包中 QML 语言与运行时规则的中文专题权威；`en/`
+> 文档仅作为英文翻译。根目录没有独立 QML 规范，不得用其他入口覆盖本文。
 
 本规范隶属 `Qt6_CPP17_Coding_Style.md`，是 QML（`.qml` 文件与 QML JavaScript）编码规范的专题展开。
 
@@ -951,7 +952,7 @@ Image {
 - `console.warn()` / `console.error()` 必须包含可定位上下文。
 - Loader、Image、动态创建、异步组件必须处理失败状态。
 - **项目自定义加严约束（强制）**：QML/JavaScript 业务代码禁止 `throw`、`try`、`catch`；不得把 JavaScript 异常作为 API 错误返回或控制流机制。
-- API 失败必须通过 C++ 暴露的错误码、错误状态、`errorString()` 或等价的显式结果/属性表达。
+- API 失败必须通过显式结果对象、状态属性、失败信号或 C++ 提供的错误码、错误状态、`errorString()` 表达；错误来源可以是 QML/JavaScript 或 C++，不得把“由 C++ 暴露”误写成唯一合法路线。
 - 不允许静默吞错后继续假装成功。
 - 稳定错误码、诊断字段、trace payload 必须集中定义，不散落字符串。
 
@@ -1104,6 +1105,6 @@ ctest --test-dir build --output-on-failure
 ---
 
 **文档包版本**：v1.2.0
-**最后更新**：2026-08-11
+**最后更新**：2026-08-13
 
 ---
